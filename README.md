@@ -2,8 +2,8 @@
 
 **An OpenClaw / Codex Agent Skill for building Karpathy-style LLM knowledge bases.**
 
-> Experimental skill — will iterate over time.  
-> Author: Lewis Liu (lylewis@outlook.com)
+> Experimental skill — will iterate over time.
+> Please send your feedbacks in github issues.
 
 Inspired by [Andrej Karpathy's llm-wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) and the community's work building on it.
 
