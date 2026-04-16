@@ -1,6 +1,19 @@
 ---
 name: llm-wiki
-description: Build and maintain a Karpathy-style LLM knowledge base — a self-compiling Obsidian markdown wiki where an Agent ingests raw sources, compiles cross-linked concept/entity/summary pages, answers queries against the corpus, lints the graph for health, and audits in-context human feedback filed from Obsidian or the local web viewer. Use when: (1) scaffolding a new knowledge base for any research topic, (2) ingesting articles/papers/PDFs/web pages into raw/, (3) compiling or restructuring wiki articles from existing raw material, (4) answering questions against the wiki and filing durable answers back, (5) running lint passes for dead links / orphan pages / coverage gaps / audit shape, (6) processing human feedback from the audit/ directory and applying corrections. Not for general note-taking, daily journals, or non-wiki Obsidian use.
+description: >-
+  Build and maintain a Karpathy-style LLM knowledge base — a self-compiling
+  Obsidian markdown wiki where an Agent ingests raw sources, compiles
+  cross-linked concept/entity/summary pages, answers queries against the
+  corpus, lints the graph for health, and audits in-context human feedback
+  filed from Obsidian or the local web viewer. Use when (1) scaffolding a
+  new knowledge base for any research topic, (2) ingesting
+  articles/papers/PDFs/web pages into raw/, (3) compiling or restructuring
+  wiki articles from existing raw material, (4) answering questions
+  against the wiki and filing durable answers back, (5) running lint
+  passes for dead links / orphan pages / coverage gaps / audit shape,
+  (6) processing human feedback from the audit/ directory and applying
+  corrections. Not for general note-taking, daily journals, or non-wiki
+  Obsidian use.
 ---
 
 # LLM Wiki — Karpathy Knowledge Base Pattern
