@@ -10,7 +10,7 @@ Example:
 
 Creates:
     <wiki-root>/
-    ├── CLAUDE.md          (schema template)
+    ├── ANYGEN.md          (schema template)
     ├── log/
     │   └── YYYYMMDD.md    (first day's log with scaffold entry)
     ├── audit/
@@ -64,8 +64,8 @@ def scaffold(root: str, title: str) -> None:
     _write(root, "audit/.gitkeep", "")
     _write(root, "audit/resolved/.gitkeep", "")
 
-    # CLAUDE.md
-    claude_md = f"""# {title} Knowledge Base
+    # ANYGEN.md
+    anygen_md = f"""# {title} Knowledge Base
 
 > Schema document — read at the start of every session together with `wiki/index.md`.
 > Update after every major compile, ingest batch, or structural change.
@@ -134,15 +134,15 @@ Sources to ingest:
 - Depth: <survey-level | deep technical>
 - Handling contradictions: state both, cite each, add to Open Research Questions.
 """
-    _write(root, "CLAUDE.md", claude_md)
-    print("✓ Created CLAUDE.md")
+    _write(root, "ANYGEN.md", anygen_md)
+    print("✓ Created ANYGEN.md")
 
     # log/<today>.md
     log_md = f"""# {today_iso}
 
 ## [{now_hm}] scaffold | Initialized {title} knowledge base
 - Created directory tree (raw/, wiki/, log/, audit/, outputs/)
-- Created CLAUDE.md schema template
+- Created ANYGEN.md schema template
 - Created wiki/index.md category skeleton
 """
     _write(root, f"log/{today_compact}.md", log_md)
@@ -154,7 +154,7 @@ Sources to ingest:
 > One-sentence scope of the wiki.
 
 ## 🔖 Navigation
-- [[#Concepts]] · [[#Entities]] · [[#Summaries]] · [[#Open Questions]]
+- [Concepts](#concepts) · [Entities](#entities) · [Summaries](#summaries-chronological) · [Open Questions](#open-questions)
 
 ## Concepts
 
@@ -179,7 +179,7 @@ Sources to ingest:
 ✅ Wiki scaffolded at: {root}/
 
 Next steps:
-  1. Fill in CLAUDE.md — define scope and naming conventions
+  1. Fill in ANYGEN.md — define scope and naming conventions
   2. Add sources to raw/ (use Obsidian Web Clipper for web articles)
   3. Run ingest: tell your LLM agent "ingest raw/<file>.md"
   4. Ask questions: "what does the wiki say about X?"

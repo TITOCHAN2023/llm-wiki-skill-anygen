@@ -37,13 +37,13 @@ If a concept page **would** exceed ~1200 words, do not write it as a single file
 
    ## Sub-pages
 
-   - [[<Topic>/<aspect-1>]] — <one-line summary>
-   - [[<Topic>/<aspect-2>]] — <one-line summary>
+   - [<aspect-1>](<aspect-1>.md) — <one-line summary>
+   - [<aspect-2>](<aspect-2>.md) — <one-line summary>
    - ...
 
    ## Sources
 
-   - [[summaries/...]]
+   - [<slug>](../../summaries/<slug>.md)
    ```
 3. Write each `<aspect-N>.md` as a focused 400–1200 word page.
 4. Update `wiki/index.md` to show the hierarchy with indented bullets under the folder-split entry.
@@ -52,7 +52,7 @@ Signs a page needs to be split:
 - Word count creeping past 1000.
 - Three or more `##` top-level sections, each with its own `###` subsections.
 - Multiple distinct concepts mentioned but not explored because there's no room.
-- You find yourself wanting to link to a specific section with `[[Page#Section]]` — that section probably deserves its own page.
+- You find yourself wanting to link to a specific section with `[text](Page.md#section)` — that section probably deserves its own page.
 
 ## Concept page structure
 
@@ -89,8 +89,8 @@ flowchart LR
 
 ## Relationship to other concepts
 
-- [[Related Concept A]] — how they relate
-- [[Related Concept B]] — contrast or connection
+- [Related Concept A](Related Concept A.md) — how they relate
+- [Related Concept B](<Related Concept B.md>) — contrast or connection
 
 ## Open questions
 
@@ -98,9 +98,11 @@ flowchart LR
 
 ## Sources
 
-- [[summaries/source-slug-1]] — (date) one-line description
-- [[summaries/source-slug-2]] — (date) one-line description
+- [source-slug-1](../summaries/source-slug-1.md) — (date) one-line description
+- [source-slug-2](../summaries/source-slug-2.md) — (date) one-line description
 ```
+
+> Paths above assume this concept page lives at `wiki/concepts/<Title>.md`. From there, sibling concepts are `<Other>.md`, entities are `../entities/<Name>.md`, summaries are `../summaries/<slug>.md`. **Always compute paths relative to the current file's directory.** Wrap paths with spaces in angle brackets: `[Foo](<Foo with spaces.md>)`.
 
 ## Entity page structure
 
@@ -125,11 +127,11 @@ tags: [tag1]
 
 ## Related concepts
 
-- [[Concept A]] — connection
+- [Concept A](../concepts/Concept A.md) — connection
 
 ## Sources
 
-- [[summaries/source-slug]]
+- [source-slug](../summaries/source-slug.md)
 ```
 
 ## Summary page structure
@@ -167,8 +169,8 @@ tags: [tag1]
 
 ## Concepts introduced / referenced
 
-- [[Concept A]]
-- [[Entity B]]
+- [Concept A](../concepts/Concept A.md)
+- [Entity B](../entities/Entity B.md)
 ```
 
 ## Diagrams — always mermaid
@@ -220,13 +222,27 @@ $$
 
 The web viewer renders math server-side with KaTeX. Obsidian renders it natively.
 
-## Wikilink rules
+## Link rules
+
+All links are **standard MD file-relative** — path relative to the current file's directory, ending in `.md`. Wrap any path containing spaces in `<...>` angle brackets.
 
 1. **Link first mention** of every entity or concept — don't wait for "a natural place".
 2. **Link maximum twice per article** — don't over-link the same page.
 3. **Link concepts that exist** — check `wiki/index.md` before creating a new link target.
-4. **For folder-split pages**, link the index with an alias: `[[concepts/Foo/index|Foo]]`.
+4. **For folder-split pages**, link the index file: `[Foo](concepts/Foo/index.md)` (with path adjusted relative to the source).
 5. **Backlink audit** — after writing a new article, grep existing articles for the new page's title and add incoming links.
+
+### Common relative paths (writing from `wiki/concepts/<Title>.md`)
+| Target | Link |
+|---|---|
+| Sibling concept | `[Other](Other.md)` |
+| Entity | `[Name](../entities/Name.md)` |
+| Summary | `[slug](../summaries/slug.md)` |
+| Folder-split sub-page | `[aspect](Title-Split/aspect.md)` |
+| Raw reference | `[slug](../../raw/refs/slug.md)` |
+
+### Common relative paths (writing from `wiki/concepts/<Topic>/aspect.md`)
+Add one extra `../` compared to above — e.g. sibling concept becomes `../Other.md`, entity becomes `../../entities/Name.md`.
 
 ## Handling contradictions between sources
 
@@ -234,11 +250,11 @@ When two sources contradict each other:
 
 1. State both claims explicitly.
 2. Note which source supports each claim.
-3. Add to the article's "Open questions" section **and** the wiki's `CLAUDE.md` research questions.
+3. Add to the article's "Open questions" section **and** the wiki's `ANYGEN.md` research questions.
 4. Do NOT silently pick one — contradictions are valuable signal.
 
 Example:
-> Source A (2024) claims X. Source B (2026) claims Y, which contradicts A. It's unclear whether this reflects a methodological difference or an error in one source. See [[summaries/source-a]] and [[summaries/source-b]].
+> Source A (2024) claims X. Source B (2026) claims Y, which contradicts A. It's unclear whether this reflects a methodological difference or an error in one source. See [source-a](../summaries/source-a.md) and [source-b](../summaries/source-b.md).
 
 If a human later files an `audit` comment resolving the contradiction, update the article and move the audit to `audit/resolved/` with a resolution note.
 

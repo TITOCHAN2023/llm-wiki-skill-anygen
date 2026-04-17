@@ -7,7 +7,6 @@ import texmath from "markdown-it-texmath";
 import katex from "katex";
 import path from "node:path";
 import fs from "node:fs";
-import { wikilinksPlugin, type WikilinkResolver } from "./wikilinks.js";
 
 export interface RenderedPage {
   html: string;
@@ -19,6 +18,12 @@ export interface RenderedPage {
 export interface RendererOptions {
   wikiRoot: string;
 }
+
+interface RenderEnv {
+  filePath?: string;
+}
+
+const EXTERNAL_URL_RE = /^[a-z][a-z0-9+.\-]*:/i;
 
 export function createRenderer(opts: RendererOptions) {
   const md = new MarkdownIt({
@@ -41,26 +46,35 @@ export function createRenderer(opts: RendererOptions) {
     katexOptions: { throwOnError: false, strict: false },
   });
 
-  const resolver: WikilinkResolver = (target) => {
-    // Try a few resolutions: exact relative path, match by stem under wiki/.
-    const candidate = findPage(opts.wikiRoot, target);
-    if (candidate) {
-      const rel = path.relative(opts.wikiRoot, candidate).split(path.sep).join("/");
-      return {
-        href: `/?page=${encodeURIComponent(rel)}`,
-        exists: true,
-      };
+  // Internal MD link rewriter — resolve [text](relative/path.md) against the
+  // source file's directory, rewrite href to /?page=..., and tag alive/dead.
+  // Also stamps the class `wikilink` so the client-side SPA interceptor and
+  // existing CSS keep working unchanged.
+  const defaultLinkOpen =
+    md.renderer.rules.link_open ??
+    ((tokens, idx, options, _env, self) =>
+      self.renderToken(tokens, idx, options));
+
+  md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+    const tok = tokens[idx]!;
+    const hrefAttr = tok.attrGet("href");
+    if (hrefAttr) {
+      const rewritten = rewriteInternalLink(
+        hrefAttr,
+        (env as RenderEnv)?.filePath,
+        opts.wikiRoot,
+      );
+      if (rewritten) {
+        tok.attrSet("href", rewritten.href);
+        const existing = tok.attrGet("class") ?? "";
+        const cls = `wikilink ${rewritten.alive ? "wikilink-alive" : "wikilink-dead"}`;
+        tok.attrSet("class", existing ? `${existing} ${cls}` : cls);
+        tok.attrSet("data-wikilink-target", rewritten.target);
+      }
     }
-    return {
-      href: `/?page=${encodeURIComponent(target)}`,
-      exists: false,
-    };
+    return defaultLinkOpen(tokens, idx, options, env, self);
   };
 
-  md.use(wikilinksPlugin, resolver);
-
-  // Attach data-source-line to every top-level block token so the client can
-  // map DOM selections back to source lines.
   md.core.ruler.push("source-line", (state) => {
     for (const tok of state.tokens) {
       if (tok.map && tok.level === 0 && tok.type.endsWith("_open")) {
@@ -69,7 +83,6 @@ export function createRenderer(opts: RendererOptions) {
     }
   });
 
-  // Customize fence rendering so mermaid blocks are left for the client to render.
   const defaultFence = md.renderer.rules.fence!;
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     const tok = tokens[idx]!;
@@ -86,12 +99,79 @@ export function createRenderer(opts: RendererOptions) {
   };
 
   return {
-    render(rawMarkdown: string): RenderedPage {
+    render(rawMarkdown: string, filePath: string): RenderedPage {
       const { frontmatter, body, title } = stripFrontmatter(rawMarkdown);
-      const html = md.render(body);
+      const env: RenderEnv = { filePath };
+      const html = md.render(body, env);
       return { html, frontmatter, rawMarkdown, title };
     },
   };
+}
+
+interface RewriteResult {
+  href: string;
+  alive: boolean;
+  target: string;
+}
+
+function rewriteInternalLink(
+  href: string,
+  sourceFilePath: string | undefined,
+  wikiRoot: string,
+): RewriteResult | null {
+  let h = href.trim();
+  // CommonMark already unwraps angle brackets before this point, but be safe.
+  if (h.startsWith("<") && h.endsWith(">")) h = h.slice(1, -1);
+  // markdown-it normalises hrefs via encodeURI, so spaces arrive as %20.
+  // Decode so we can hit the filesystem and measure true existence.
+  try {
+    h = decodeURI(h);
+  } catch {
+    // leave as-is on malformed sequences
+  }
+  if (!h) return null;
+  if (EXTERNAL_URL_RE.test(h)) return null;
+  if (h.startsWith("#")) return null;
+
+  const [pathPart, anchorPart] = splitAnchor(h);
+  if (!pathPart.endsWith(".md")) return null;
+
+  const sourceDir = sourceFilePath
+    ? path.posix.dirname(toPosix(sourceFilePath))
+    : "";
+  const joined = path.posix.normalize(
+    sourceDir && sourceDir !== "." ? path.posix.join(sourceDir, pathPart) : pathPart,
+  );
+
+  const fullOnDisk = path.resolve(wikiRoot, joined);
+  const relFromRoot = path.relative(wikiRoot, fullOnDisk).split(path.sep).join("/");
+  const escapesRoot =
+    relFromRoot.startsWith("..") || path.isAbsolute(relFromRoot);
+
+  let alive = false;
+  try {
+    alive = fs.statSync(fullOnDisk).isFile();
+  } catch {
+    alive = false;
+  }
+
+  const targetKey = escapesRoot ? joined : relFromRoot;
+  const anchorSuffix = anchorPart ? `#${anchorPart}` : "";
+  return {
+    href: `/?page=${encodeURIComponent(targetKey)}${anchorSuffix}`,
+    alive,
+    target: targetKey,
+  };
+}
+
+function splitAnchor(h: string): [string, string] {
+  const i = h.indexOf("#");
+  if (i < 0) return [h, ""];
+  return [h.slice(0, i), h.slice(i + 1)];
+}
+
+function toPosix(p: string): string {
+  return p.split(path.sep).join("/");
 }
 
 function escapeHtml(s: string): string {
@@ -113,7 +193,6 @@ function stripFrontmatter(text: string): {
   let frontmatter: Record<string, unknown> | null = null;
   let body = text;
   if (m) {
-    // We don't need full YAML parsing here — keep it for display only.
     frontmatter = {};
     for (const line of m[1]!.split("\n")) {
       const idx = line.indexOf(":");
@@ -128,43 +207,4 @@ function stripFrontmatter(text: string): {
     (h1 && h1[1]) ||
     null;
   return { frontmatter, body, title };
-}
-
-/**
- * Resolve a wikilink target to a file under wikiRoot. Tries:
- *   - the exact relative path as given
- *   - that path + ".md"
- *   - a search for any md file whose stem === target
- *   - a search for any md file whose basename === target
- */
-export function findPage(wikiRoot: string, target: string): string | null {
-  const tryPath = (rel: string): string | null => {
-    const full = path.join(wikiRoot, rel);
-    if (fs.existsSync(full) && fs.statSync(full).isFile()) return full;
-    return null;
-  };
-
-  const direct = tryPath(target) || tryPath(target + ".md");
-  if (direct) return direct;
-
-  // Fallback: scan wiki/ for matching stem.
-  const wikiDir = path.join(wikiRoot, "wiki");
-  if (!fs.existsSync(wikiDir)) return null;
-  const match = findByStem(wikiDir, target);
-  return match;
-}
-
-function findByStem(dir: string, target: string): string | null {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const e of entries) {
-    const full = path.join(dir, e.name);
-    if (e.isDirectory()) {
-      const sub = findByStem(full, target);
-      if (sub) return sub;
-    } else if (e.isFile() && e.name.endsWith(".md")) {
-      const stem = e.name.replace(/\.md$/, "");
-      if (stem === target || e.name === target) return full;
-    }
-  }
-  return null;
 }

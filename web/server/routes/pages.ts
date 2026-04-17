@@ -36,9 +36,10 @@ export function handlePage(cfg: ServerConfig) {
     }
 
     const rawMarkdown = fs.readFileSync(full, "utf-8");
-    const rendered = renderer.render(rawMarkdown);
+    const relFromRootPosix = relFromRoot.split(path.sep).join("/");
+    const rendered = renderer.render(rawMarkdown, relFromRootPosix);
     res.json({
-      path: relFromRoot.split(path.sep).join("/"),
+      path: relFromRootPosix,
       title: rendered.title,
       frontmatter: rendered.frontmatter,
       html: rendered.html,

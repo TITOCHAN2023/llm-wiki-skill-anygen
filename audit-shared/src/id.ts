@@ -18,7 +18,7 @@ export function makeId(now: Date = new Date()): string {
 /**
  * Derive a short filesystem-safe slug from a string. Used to make audit
  * filenames a bit more human-readable:
- *   20260409-143022-a1b2-claude-code-size.md
+ *   20260409-143022-a1b2-anygen-code-size.md
  */
 export function slugify(input: string, maxLen = 30): string {
   return input

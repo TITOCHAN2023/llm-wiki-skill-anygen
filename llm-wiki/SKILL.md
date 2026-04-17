@@ -19,7 +19,7 @@ description: >-
 # LLM Wiki — Karpathy Knowledge Base Pattern
 
 > **Experimental skill — iterating.**
-> Authored by Lewis Liu (lylewis@outlook.com) · Inspired by [Karpathy's llm-wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+> Inspired by [Karpathy's llm-wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 
 ## Core idea
 
@@ -28,18 +28,18 @@ Instead of RAG (re-retrieving raw docs on every query), the LLM **compiles** raw
 - **You** own: sourcing raw material, asking good questions, steering direction, filing feedback on anything the AI got wrong.
 - **LLM** owns: all writing, cross-referencing, filing, bookkeeping, and acting on your feedback.
 
-The wiki is a living artifact with **five operations** — `compile`, `ingest`, `query`, `lint`, `audit`. Every session starts by reading `CLAUDE.md` and `wiki/index.md`.
+The wiki is a living artifact with **five operations** — `compile`, `ingest`, `query`, `lint`, `audit`. Every session starts by reading `ANYGEN.md` and `wiki/index.md`.
 
 ## Directory layout
 
 ```
 <wiki-root>/
-├── CLAUDE.md          ← Schema: scope, conventions, current articles, gaps
+├── ANYGEN.md          ← Schema: scope, conventions, current articles, gaps
 ├── log/               ← Per-day operation log (one file per day)
 │   ├── 20260409.md
 │   └── 20260410.md
 ├── audit/             ← Human feedback inbox (one file per comment)
-│   ├── 20260409-143022-claude-code-size.md
+│   ├── 20260409-143022-anygen-code-size.md
 │   └── resolved/      ← Processed feedback, archived with resolution notes
 ├── raw/               ← Immutable source documents (LLM reads, never writes)
 │   ├── articles/
@@ -55,7 +55,7 @@ The wiki is a living artifact with **five operations** — `compile`, `ingest`, 
     └── queries/       ← Query answers (promote durable ones to wiki/)
 ```
 
-`CLAUDE.md` is the **schema file** — the single most important configuration. It tells the LLM the wiki's scope, naming conventions, current article list, open questions, and research gaps. Read `references/schema-guide.md` for what to put in it. Read it at the start of every session.
+`ANYGEN.md` is the **schema file** — the single most important configuration. It tells the LLM the wiki's scope, naming conventions, current article list, open questions, and research gaps. Read `references/schema-guide.md` for what to put in it. Read it at the start of every session.
 
 ## Core principles
 
@@ -72,15 +72,15 @@ A single concept page should **never** try to cover a complex topic end-to-end. 
 
 Example layout (from a real wiki):
 ```
-wiki/tech/claude-code/
+wiki/tech/anygen-code/
 ├── index.md                         (overview + links to sub-pages)
-├── Claude_Code_Architecture.md
-├── Claude_Code_Agent_Framework.md
-├── Claude_Code_Bridge_System.md
-├── Claude_Code_Query_Engine.md
-├── Claude_Code_Skills_Plugins.md
-├── Claude_Code_State_Management.md
-└── Claude_Code_Tool_System.md
+├── Anygen_Code_Architecture.md
+├── Anygen_Code_Agent_Framework.md
+├── Anygen_Code_Bridge_System.md
+├── Anygen_Code_Query_Engine.md
+├── Anygen_Code_Skills_Plugins.md
+├── Anygen_Code_State_Management.md
+└── Anygen_Code_Tool_System.md
 ```
 
 One fat file covering all seven aspects would be unreadable and unlinkable. Seven focused files + an index page give you navigation, selective reading, clean backlinks, and small audit targets.
@@ -115,7 +115,7 @@ Large binaries (videos, model weights, installers, datasets, large PDFs >10 MB) 
   ---
   ```
   followed by a short description of what it is and why it matters to this wiki.
-- Wiki pages cite `[[raw/refs/<slug>]]` exactly like any other source.
+- Wiki pages cite it like any other source — a standard MD link relative to the current file, e.g. `[slug](../../raw/refs/<slug>.md)` from a page under `wiki/concepts/`.
 
 This keeps the wiki repo git-friendly and portable.
 
@@ -142,7 +142,7 @@ Every action on the wiki is one of these five. Each appends an entry to the curr
 **When to run**: after a big ingest batch, when an existing page has outgrown 1200 words, when `index.md` no longer reflects reality, or when the user says "clean up the wiki".
 
 **Steps**:
-1. Read `CLAUDE.md`, `wiki/index.md`, and every file in the target subtree.
+1. Read `ANYGEN.md`, `wiki/index.md`, and every file in the target subtree.
 2. For each page over ~1200 words: plan a split into `concepts/<topic>/` with an index + sub-pages. Confirm the plan with the user before writing.
 3. For each pair of near-duplicate pages: propose a merge. Confirm, then rewrite.
 4. Regenerate `wiki/index.md` so every page is listed exactly once.
@@ -173,7 +173,7 @@ Answer a question **grounded in the wiki**, not general knowledge.
 1. Read `wiki/index.md`. Scan for relevant pages by category.
 2. Read the identified pages in full; follow one level of wikilinks.
 3. If the wiki doesn't have enough material, say so and suggest what to ingest next instead of making something up.
-4. Synthesize the answer, citing pages inline with `[[Page Name]]`.
+4. Synthesize the answer, citing pages inline with standard MD links — `[Page Name](relative/path.md)`, path relative to the current file. Wrap in angle brackets `[Foo](<path with spaces.md>)` when the path contains spaces.
 5. Save to `outputs/queries/<YYYY-MM-DD>-<question-slug>.md`.
 6. If the answer is durable (a comparison, analysis, or new synthesis) → promote a cleaned-up version to `wiki/concepts/`, add to `index.md`.
 7. Log: `## [HH:MM] query | <question-slug>` (and a separate `## [HH:MM] promote | ...` line if promoted).
@@ -187,10 +187,11 @@ python3 scripts/lint_wiki.py <wiki-root>
 ```
 
 The script reports:
-- **Dead wikilinks** — `[[Target]]` where `Target.md` doesn't exist
-- **Orphan pages** — pages with no inbound wikilinks
+- **Dead links** — `[text](path.md)` whose resolved target doesn't exist
+- **Orphan pages** — pages with no inbound links
 - **Missing index entries** — pages not listed in `wiki/index.md`
-- **Frequently-linked missing pages** — `[[X]]` referenced 3+ times but no page
+- **Frequently-linked missing pages** — a link target referenced 3+ times but no page exists
+- **Residual wikilinks** — any remaining `[[...]]` (leftover from pre-MD era — run `migrate_wikilinks.py` to convert)
 - **log/ shape** — stray files or wrong filenames in `log/`
 - **audit/ shape** — malformed YAML frontmatter in `audit/*.md`
 - **Audit target resolution** — every open audit's `target` file must exist
@@ -208,14 +209,14 @@ Process human feedback from `audit/`.
    - **Accept**: apply the correction to the target file.
    - **Partially accept**: apply what makes sense, note the rest in the resolution.
    - **Reject**: explain why in the resolution — the feedback may be based on a misreading of scope or a contradictory source.
-   - **Defer**: add to `CLAUDE.md` "Open research questions" and leave the audit in place with a comment.
+   - **Defer**: add to `ANYGEN.md` "Open research questions" and leave the audit in place with a comment.
 4. For applied audits, append a `# Resolution` section to the audit file:
    ```markdown
    # Resolution
 
    2026-04-10 · accepted.
    Fixed the file count (was "~1,900", corrected to "~1,800" per commit abc123).
-   Updated: tech/Claude_Code.md lines 47–48.
+   Updated: tech/Anygen_Code.md lines 47–48.
    ```
 5. Move the file from `audit/` to `audit/resolved/`. Filename unchanged.
 6. Log per resolved audit:
@@ -248,10 +249,10 @@ The Obsidian plugin and the web viewer both write audit files in the **same form
 python3 scripts/scaffold.py <wiki-root> "<Topic Title>"
 ```
 
-Creates the full tree (including `log/<today>.md`, `audit/`, `audit/resolved/`), a blank `CLAUDE.md` based on the new template, and a blank `wiki/index.md` with the recommended category layout.
+Creates the full tree (including `log/<today>.md`, `audit/`, `audit/resolved/`), a blank `ANYGEN.md` based on the new template, and a blank `wiki/index.md` with the recommended category layout.
 
 After scaffolding:
-1. Fill in `CLAUDE.md` — define scope, naming conventions, initial research questions.
+1. Fill in `ANYGEN.md` — define scope, naming conventions, initial research questions.
 2. Start ingesting sources.
 3. Ask questions to build up `outputs/queries/`; promote durable answers.
 4. Run `lint` periodically.
@@ -259,7 +260,7 @@ After scaffolding:
 
 ## `wiki/index.md` format
 
-The LLM rebuilds `index.md` on every compile and touches it on every ingest. Format:
+The LLM rebuilds `index.md` on every compile and touches it on every ingest. Format (paths are relative to `wiki/index.md`'s own directory, i.e. `wiki/`):
 
 ```markdown
 # Index — <Topic>
@@ -267,23 +268,23 @@ The LLM rebuilds `index.md` on every compile and touches it on every ingest. For
 > One-sentence scope of the wiki.
 
 ## 🔖 Navigation
-- [[#Concepts]] · [[#Entities]] · [[#Summaries]] · [[#Open Questions]]
+- [Concepts](#concepts) · [Entities](#entities) · [Summaries](#summaries) · [Open Questions](#open-questions)
 
 ## Concepts
 ### <Category A>
-- [[concepts/Foo]] — one-line summary
-- [[concepts/Bar/index|Bar]] — (folder-split) one-line summary
-    - [[concepts/Bar/aspect-1]] — ...
-    - [[concepts/Bar/aspect-2]] — ...
+- [Foo](concepts/Foo.md) — one-line summary
+- [Bar](concepts/Bar/index.md) — (folder-split) one-line summary
+    - [aspect-1](concepts/Bar/aspect-1.md) — ...
+    - [aspect-2](concepts/Bar/aspect-2.md) — ...
 
 ### <Category B>
 - ...
 
 ## Entities
-- [[entities/Andrej Karpathy]] — AI researcher, author of the llm-wiki pattern
+- [Andrej Karpathy](<entities/Andrej Karpathy.md>) — AI researcher, author of the llm-wiki pattern
 
 ## Summaries (chronological)
-- 2026-04-09 — [[summaries/llm-wiki-gist]] — Karpathy's original Gist
+- 2026-04-09 — [llm-wiki-gist](summaries/llm-wiki-gist.md) — Karpathy's original Gist
 
 ## Open Questions
 - Q1: ...
@@ -292,7 +293,8 @@ The LLM rebuilds `index.md` on every compile and touches it on every ingest. For
 Rules:
 - Every wiki page must appear exactly once in `index.md`. `lint` enforces this.
 - Folder-split concepts show hierarchy via indented bullets.
-- `index.md` + `CLAUDE.md` together are what the AI reads at session start.
+- Paths are **standard MD file-relative** — relative to the current file's directory. Use `<...>` angle brackets around any path that contains spaces.
+- `index.md` + `ANYGEN.md` together are what the AI reads at session start.
 
 ## `log/` format
 
@@ -313,7 +315,7 @@ Quick grep across history: `grep -rh "^## \[" log/ | tail -20`.
 
 ## References
 
-- `references/schema-guide.md` — What to put in `CLAUDE.md`
+- `references/schema-guide.md` — What to put in `ANYGEN.md`
 - `references/article-guide.md` — How to write good wiki articles (length, wikilinks, mermaid, math, divide-and-conquer)
 - `references/log-guide.md` — The `log/` folder convention
 - `references/audit-guide.md` — Audit file format, anchor strategy, processing workflow

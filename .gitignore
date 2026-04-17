@@ -1,4 +1,4 @@
-CLAUDE.md
+ANYGEN.md
 
 # Node.js
 node_modules/
@@ -18,3 +18,4 @@ web/dist/
 # OS
 .DS_Store
 obsidian-releases/
+md4claw/

@@ -22,7 +22,12 @@ export interface GraphData {
   edges: GraphEdge[];
 }
 
-const WIKILINK_RE = /\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g;
+// Matches [text](href) and ![alt](src). href/src may be wrapped in <...>
+// (which is how paths with spaces travel in strict CommonMark). Only hrefs
+// whose path ends in `.md` are considered wiki page links.
+const MD_LINK_RE =
+  /!?\[[^\]\n]*\]\(\s*(?:<([^>\n]+?\.md(?:#[^>\n]*)?)>|([^()\s]+?\.md(?:#[^()\s]*)?))\s*\)/g;
+const EXTERNAL_URL_RE = /^[a-z][a-z0-9+.\-]*:/i;
 
 export function buildGraph(wikiRoot: string): GraphData {
   const wikiDir = path.join(wikiRoot, "wiki");
@@ -30,12 +35,8 @@ export function buildGraph(wikiRoot: string): GraphData {
 
   const files = collectMdFiles(wikiDir);
 
-  // Build a lookup table keyed by both the stem ("Transformers") and the
-  // relative-to-wiki path (e.g. "concepts/Transformers"), so wikilinks can
-  // resolve in either form.
-  const byKey: Map<string, string> = new Map(); // key → rel-from-wikiRoot path
+  // Nodes keyed by id (relative-to-wikiRoot POSIX path).
   const nodes: Map<string, GraphNode> = new Map();
-
   for (const f of files) {
     const relFromWiki = path.relative(wikiDir, f).split(path.sep).join("/");
     const id = `wiki/${relFromWiki}`;
@@ -43,39 +44,33 @@ export function buildGraph(wikiRoot: string): GraphData {
     const parts = relFromWiki.split("/");
     const group = parts.length > 1 ? parts[0]! : "other";
     const title = extractTitle(fs.readFileSync(f, "utf-8")) ?? stem;
-
-    const node: GraphNode = {
-      id,
-      label: stem,
-      path: id,
-      group,
-      degree: 0,
-      title,
-    };
-    nodes.set(id, node);
-    byKey.set(stem, id);
-    byKey.set(relFromWiki.replace(/\.md$/, ""), id);
-    // Also index by basename without extension in lowercase as a last-resort alias
-    byKey.set(stem.toLowerCase(), id);
+    nodes.set(id, { id, label: stem, path: id, group, degree: 0, title });
   }
 
-  // Pass 2: build edges. Parse wikilinks per file and resolve targets.
+  // Build edges by resolving each MD link against its source file's dir.
   const edges: GraphEdge[] = [];
   const seenEdges = new Set<string>();
   for (const f of files) {
-    const relFromWiki = path.relative(wikiDir, f).split(path.sep).join("/");
-    const srcId = `wiki/${relFromWiki}`;
+    const srcId =
+      `wiki/${path.relative(wikiDir, f).split(path.sep).join("/")}`;
     const text = fs.readFileSync(f, "utf-8");
-    WIKILINK_RE.lastIndex = 0;
+    MD_LINK_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
-    while ((m = WIKILINK_RE.exec(text))) {
-      const target = m[1]!.trim();
-      if (target.startsWith("#")) continue; // anchor-only links — ignore
-      const tgtId =
-        byKey.get(target) ??
-        byKey.get(target.replace(/\.md$/, "")) ??
-        byKey.get(target.toLowerCase());
-      if (!tgtId || tgtId === srcId) continue;
+    while ((m = MD_LINK_RE.exec(text))) {
+      const href = (m[1] ?? m[2] ?? "").trim();
+      const [pathPart] = splitAnchor(href);
+      if (!pathPart || EXTERNAL_URL_RE.test(pathPart)) continue;
+
+      const resolvedAbs = path.resolve(path.dirname(f), pathPart);
+      const relFromRoot = path
+        .relative(wikiRoot, resolvedAbs)
+        .split(path.sep)
+        .join("/");
+      if (relFromRoot.startsWith("..") || path.isAbsolute(relFromRoot)) {
+        continue; // target escapes wiki-root (e.g. raw/refs/foo.md)
+      }
+      const tgtId = relFromRoot;
+      if (!nodes.has(tgtId) || tgtId === srcId) continue;
 
       const key = `${srcId}→${tgtId}`;
       if (seenEdges.has(key)) continue;
@@ -93,6 +88,12 @@ export function buildGraph(wikiRoot: string): GraphData {
   };
 }
 
+function splitAnchor(h: string): [string, string] {
+  const i = h.indexOf("#");
+  if (i < 0) return [h, ""];
+  return [h.slice(0, i), h.slice(i + 1)];
+}
+
 function collectMdFiles(dir: string): string[] {
   const out: string[] = [];
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -105,7 +106,6 @@ function collectMdFiles(dir: string): string[] {
 }
 
 function extractTitle(text: string): string | null {
-  // frontmatter title
   const fm = /^---\n([\s\S]*?)\n---/.exec(text);
   if (fm) {
     const t = /^title:\s*(.+)$/m.exec(fm[1]!);

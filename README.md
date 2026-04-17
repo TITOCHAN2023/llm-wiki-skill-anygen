@@ -1,6 +1,6 @@
 # llm-wiki
 
-**An OpenClaw / Codex Agent Skill for building Karpathy-style LLM knowledge bases.**
+**A Claw Agent Skill for building Karpathy-style LLM knowledge bases.**
 
 > Experimental skill — will iterate over time.
 > Please send your feedbacks in github issues.
@@ -17,7 +17,7 @@ Instead of RAG (re-retrieving raw docs on every query), this pattern has the LLM
 The skill comes with two companion tools in this repo:
 
 - **`plugins/obsidian-audit/`** — an Obsidian plugin: select text in any page, leave a comment with severity, the comment is written into `audit/` as an anchored markdown file.
-- **`web/`** — a local Node.js preview server: renders the wiki with mermaid, KaTeX, and wikilinks, lets you select + file feedback from the browser, and shows open audits per page.
+- **`web/`** — a local Node.js preview server: renders the wiki with mermaid, KaTeX, and resolved internal MD links, lets you select + file feedback from the browser, and shows open audits per page.
 
 Both tools share a single TypeScript library (`audit-shared/`) so audit files written from Obsidian and the web viewer are byte-identical in shape.
 
@@ -25,9 +25,7 @@ Both tools share a single TypeScript library (`audit-shared/`) so audit files wr
 
 ```bash
 # Copy the skill into your agent's skills directory
-cp -r llm-wiki/ ~/.claude/skills/llm-wiki/
-# or for Codex
-cp -r llm-wiki/ ~/.codex/skills/llm-wiki/
+cp -r llm-wiki/ <your skill directory>
 ```
 
 Then reference it in your agent config, or simply paste `llm-wiki/SKILL.md` into your agent context.
@@ -60,7 +58,7 @@ llm-wiki-skill/
 ├── llm-wiki/                    ← The skill
 │   ├── SKILL.md                 ← Main skill file (read by agent)
 │   ├── references/
-│   │   ├── schema-guide.md      ← CLAUDE.md schema template
+│   │   ├── schema-guide.md      ← ANYGEN.md schema template
 │   │   ├── article-guide.md     ← Article writing (divide & conquer, mermaid, KaTeX)
 │   │   ├── log-guide.md         ← log/ folder convention
 │   │   ├── audit-guide.md       ← audit file format + processing workflow
@@ -73,7 +71,7 @@ llm-wiki-skill/
 │   └── src/{schema,anchor,id,serialize,index}.ts
 ├── plugins/obsidian-audit/      ← Obsidian plugin — file audit from vault
 └── web/                         ← Local Node.js preview + feedback server
-    ├── server/                  ← Express + markdown-it + KaTeX + wikilinks
+    ├── server/                  ← Express + markdown-it + KaTeX + internal MD link resolver
     └── client/                  ← Vanilla-TS SPA with mermaid + selection popover
 ```
 

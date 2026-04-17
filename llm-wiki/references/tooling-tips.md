@@ -9,6 +9,12 @@ Practical setup and usage notes for the LLM Wiki stack.
 1. **Attachment folder**: Settings → Files and links → "Attachment folder path" → `raw/assets/`.
 2. **New file location**: Settings → Files and links → "Default location for new notes" → `wiki/concepts/`.
 3. **Download attachments hotkey**: Settings → Hotkeys → search "Download attachments" → bind to `Ctrl+Shift+D`. After clipping an article, hit the hotkey to download all images locally.
+4. **Link format** (important — this wiki uses standard MD links, not `[[wikilinks]]`):
+   - Settings → Files and links → **Use [[Wikilinks]]** → **OFF**
+   - Settings → Files and links → **New link format** → **Relative path to file**
+   - Settings → Files and links → **Detect all file extensions** → **ON** (so `.md` links show up in the graph)
+
+With these settings, Obsidian produces and resolves `[Page](relative/path.md)` natively — backlinks, graph view, and rename-tracking all work across both `[[wikilinks]]` and MD links, so if you ever paste something that uses the old style, it still connects. Run `scripts/migrate_wikilinks.py` to convert.
 
 ### Plugins to install
 
@@ -121,7 +127,7 @@ import matplotlib.pyplot as plt
 plt.savefig('outputs/charts/my-analysis.png')
 ```
 
-Embed in a wiki article: `![[my-analysis.png]]`.
+Embed in a wiki article with a standard MD image link (path relative to the wiki page): `![my analysis](../../outputs/charts/my-analysis.png)`.
 
 ## Git workflow
 

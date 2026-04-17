@@ -10,7 +10,7 @@ AI-written content is wrong sometimes. Raw sources contradict each other. Feedba
 
 ```
 <wiki-root>/audit/
-├── 20260409-143022-claude-code-size.md    ← open feedback
+├── 20260409-143022-anygen-code-size.md    ← open feedback
 ├── 20260409-150110-rag-definition.md      ← open feedback
 └── resolved/
     ├── 20260408-110505-typo-gemma.md      ← processed, with resolution
@@ -27,7 +27,7 @@ Filename: `YYYYMMDD-HHMMSS-<short-slug>.md`. The prefix is the creation timestam
 ```markdown
 ---
 id: 20260409-143022-a1b2
-target: tech/Claude_Code.md
+target: tech/Anygen_Code.md
 target_lines: [45, 52]
 anchor_before: "## 技术概览\n\n| 维度 | 详情 |\n|------|------|\n"
 anchor_text: "| **规模** | ~1,900 个文件，512,000+ 行代码 |"
@@ -105,7 +105,7 @@ See `SKILL.md` → "The five operations" → `audit` for the canonical version. 
    - Flip `status: open` → `status: resolved` in the frontmatter.
    - Move the file to `audit/resolved/`.
    - Append a `## [HH:MM] audit | resolved <id> — <one-liner>` entry to `log/YYYYMMDD.md`.
-3. If an audit is deferred (e.g., unresolvable contradiction), leave the file in `audit/` and add the question to `CLAUDE.md` "Open research questions" with a reference to the audit id.
+3. If an audit is deferred (e.g., unresolvable contradiction), leave the file in `audit/` and add the question to `ANYGEN.md` "Open research questions" with a reference to the audit id.
 
 ## Resolution section format
 
@@ -114,8 +114,8 @@ See `SKILL.md` → "The five operations" → `audit` for the canonical version. 
 
 2026-04-10 · accepted.
 Fixed the file count (was "~1,900", corrected to "~1,800" per commit abc123).
-Updated: tech/Claude_Code.md lines 47–48.
-Log: [[log/20260410#1430 audit]]
+Updated: tech/Anygen_Code.md lines 47–48.
+Log: [log/20260410 · 14:30 audit](../log/20260410.md)
 ```
 
 Fields:
@@ -124,7 +124,7 @@ Fields:
 - Which files were touched (for non-trivial edits).
 - Pointer to the log entry.
 
-For `rejected` audits: explain **why** — most often "out of scope per CLAUDE.md" or "contradicts more authoritative source X". Rejected audits still move to `resolved/` so they're not processed again, but they remain visible in case the scope changes.
+For `rejected` audits: explain **why** — most often "out of scope per ANYGEN.md" or "contradicts more authoritative source X". Rejected audits still move to `resolved/` so they're not processed again, but they remain visible in case the scope changes.
 
 ## Tooling
 

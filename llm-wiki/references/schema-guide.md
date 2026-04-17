@@ -1,6 +1,6 @@
-# CLAUDE.md Schema Guide
+# ANYGEN.md Schema Guide
 
-`CLAUDE.md` (also read as `AGENTS.md` by some tools) is the **schema document** for a wiki topic. It tells the LLM agent the scope, conventions, current state, and open questions — every session should start by reading it together with `wiki/index.md`.
+`ANYGEN.md` (also read as `AGENTS.md` by some tools) is the **schema document** for a wiki topic. It tells the LLM agent the scope, conventions, current state, and open questions — every session should start by reading it together with `wiki/index.md`.
 
 ## Why it matters
 
@@ -36,9 +36,10 @@ Every operation appends an entry to `log/YYYYMMDD.md`.
 - **Entity pages** (`wiki/entities/`): Proper names. E.g., "Andrej Karpathy", "Obsidian", "Avellaneda-Stoikov Model".
 - **Summary pages** (`wiki/summaries/`): kebab-case source slug. E.g., "karpathy-llm-wiki-gist".
 
-### Wikilinks
-- Always use `[[Page Title]]` — exact page title, case-sensitive.
-- For folder-split pages, link to the index: `[[concepts/Foo/index|Foo]]`.
+### Links
+- Always use standard MD links: `[Page Title](relative/path.md)`. Paths are **relative to the current file's directory**.
+- Wrap paths with spaces in angle brackets: `[Andrej Karpathy](<entities/Andrej Karpathy.md>)`.
+- For folder-split pages, link to the index file: `[Foo](concepts/Foo/index.md)`.
 - Link the first mention of every entity or concept. Do not link the same page more than twice per article.
 
 ### Frontmatter
@@ -64,16 +65,18 @@ tags: [relevant tags]
 
 ## Current articles
 
+(Paths in this section are relative to `ANYGEN.md`, which lives at wiki-root — so they include the `wiki/` prefix.)
+
 ### Concepts
-- [[<Concept Title>]] — one-line summary
-- [[concepts/<Topic>/index|<Topic>]] — (folder-split) one-line summary
-    - [[<Topic>/<aspect-1>]] — ...
+- [<Concept Title>](wiki/concepts/<Concept Title>.md) — one-line summary
+- [<Topic>](wiki/concepts/<Topic>/index.md) — (folder-split) one-line summary
+    - [<aspect-1>](wiki/concepts/<Topic>/<aspect-1>.md) — ...
 
 ### Entities
-- [[<Entity Name>]] — one-line summary
+- [<Entity Name>](wiki/entities/<Entity Name>.md) — one-line summary
 
 ### Summaries
-- [[summaries/<slug>]] — source title (date)
+- [<slug>](wiki/summaries/<slug>.md) — source title (date)
 
 ## Open research questions
 
@@ -101,7 +104,7 @@ Count of open audits per target (filled in after running `audit_review.py --open
 
 **Good scope definition** prevents sprawl. A wiki about "LLM memory techniques" should exclude "LLM training" even though they're related.
 
-**Explicit naming conventions** keep wikilinks from breaking. If you decide concept pages use Title Case, enforce it — a broken wikilink is an orphan.
+**Explicit naming conventions** keep links from breaking. If you decide concept pages use Title Case, enforce it — a broken link is an orphan.
 
 **Maintained article list** lets the LLM know what already exists before creating a new page. The most common error is creating duplicate articles with slightly different names.
 
