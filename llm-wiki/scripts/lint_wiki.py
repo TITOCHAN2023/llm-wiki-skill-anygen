@@ -6,7 +6,7 @@ Usage:
     python3 lint_wiki.py <wiki-root>
 
 Example:
-    python3 lint_wiki.py ~/wikis/ai-research
+    python3 lint_wiki.py <your knowledge path>/wikis/ai-research
 
 Checks:
   1. Dead links — [text](path.md) whose resolved target doesn't exist

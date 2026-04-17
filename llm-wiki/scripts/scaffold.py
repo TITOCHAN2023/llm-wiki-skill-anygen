@@ -6,7 +6,7 @@ Usage:
     python3 scaffold.py <wiki-root> "<Topic Title>"
 
 Example:
-    python3 scaffold.py ~/wikis/ai-research "AI Research"
+    python3 scaffold.py <your knowledge path>/wikis/ai-research "AI Research"
 
 Creates:
     <wiki-root>/

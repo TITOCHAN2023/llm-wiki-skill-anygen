@@ -34,20 +34,20 @@ Then reference it in your agent config, or simply paste `llm-wiki/SKILL.md` into
 
 ```bash
 # 1. Scaffold a new wiki
-python3 llm-wiki/scripts/scaffold.py ~/my-wiki "My Research Topic"
+python3 llm-wiki/scripts/scaffold.py <your knowledge path>/my-wiki "My Research Topic"
 
 # 2. Add a source
-cp my-article.md ~/my-wiki/raw/articles/
+cp my-article.md <your knowledge path>/my-wiki/raw/articles/
 
 # 3. Tell your agent: "ingest raw/articles/my-article.md"
 
 # 4. Ask questions: "what does the wiki say about X?"
 
 # 5. Run lint periodically
-python3 llm-wiki/scripts/lint_wiki.py ~/my-wiki
+python3 llm-wiki/scripts/lint_wiki.py <your knowledge path>/my-wiki
 
 # 6. File a comment from the web viewer or Obsidian plugin, then process it
-python3 llm-wiki/scripts/audit_review.py ~/my-wiki --open
+python3 llm-wiki/scripts/audit_review.py <your knowledge path>/my-wiki --open
 # then tell the agent: "audit: process the open comments"
 ```
 

@@ -6,9 +6,9 @@ Usage:
     python3 audit_review.py <wiki-root> [--open|--resolved|--all]
 
 Examples:
-    python3 audit_review.py ~/wikis/ai-research --open
-    python3 audit_review.py ~/wikis/ai-research --resolved
-    python3 audit_review.py ~/wikis/ai-research --all
+    python3 audit_review.py <your knowledge path>/wikis/ai-research --open
+    python3 audit_review.py <your knowledge path>/wikis/ai-research --resolved
+    python3 audit_review.py <your knowledge path>/wikis/ai-research --all
 
 Reads every file under `<wiki-root>/audit/` (open) and `<wiki-root>/audit/resolved/`
 (resolved), parses the YAML frontmatter, and prints a report grouped by target

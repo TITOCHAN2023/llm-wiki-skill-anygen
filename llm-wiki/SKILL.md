@@ -59,7 +59,24 @@ The wiki is a living artifact with **five operations** — `compile`, `ingest`, 
 
 ## Core principles
 
-Four rules govern everything below. If a future instruction contradicts one, flag it to the user before acting.
+Five rules govern everything below. If a future instruction contradicts one, flag it to the user before acting.
+
+### 0. Links are standard MD — `[[wikilinks]]` are banned
+
+Every intra-wiki reference, in every file this skill produces (wiki pages, summaries, query outputs, audit resolutions, log entries) and in **every chat reply** to the user, must use standard CommonMark link syntax:
+
+```markdown
+[Page Name](relative/path/to/page.md)
+[Page with spaces](<relative/path with spaces.md>)
+```
+
+Do **not** use `[[Page Name]]`, `[[folder/Page|Alias]]`, or `![[embed.png]]`. These render only in Obsidian; in every other surface (chat UIs, web viewer, GitHub, plain terminal) they appear as literal brackets and look broken.
+
+Path resolution:
+- **Inside a file written to disk** (wiki page, summary, query file, etc.): paths are **relative to that file's own directory**. Compute with mental `posixpath.relpath(target, current_dir)`.
+- **In a chat reply**: paths are **wiki-root-relative** and include the `wiki/` prefix (e.g. `[Foo](wiki/concepts/Foo.md)`) — the user has no "current file" to anchor against.
+
+**Do not offer the user a choice between `[[]]` and MD.** It is not a preference; it is a skill rule. If the user has a wiki that still contains `[[]]`, convert it with `scripts/migrate_wikilinks.py`.
 
 ### 1. Divide and conquer
 
@@ -169,13 +186,17 @@ Add a new source. **One source typically touches 5–15 wiki pages.**
 
 Answer a question **grounded in the wiki**, not general knowledge.
 
+> ⛔ **Never use `[[wikilink]]` syntax — in any output of this op.** Not in the saved query file, not in the chat reply, not when offering the user examples. `[[]]` only renders inside Obsidian; everywhere else (chat UIs, web viewer, GitHub, plain terminal) it appears as literal double-brackets and looks broken. Do not ask the user whether they'd "prefer wikilinks" — that is not a user preference, it is a skill rule. The only allowed link syntax is standard MD: `[Page Name](path/to/page.md)`.
+
 **Steps**:
 1. Read `wiki/index.md`. Scan for relevant pages by category.
-2. Read the identified pages in full; follow one level of wikilinks.
+2. Read the identified pages in full; follow one level of MD links.
 3. If the wiki doesn't have enough material, say so and suggest what to ingest next instead of making something up.
-4. Synthesize the answer, citing pages inline with standard MD links — `[Page Name](relative/path.md)`, path relative to the current file. Wrap in angle brackets `[Foo](<path with spaces.md>)` when the path contains spaces.
+4. Synthesize the answer. Two outputs, each with its own path convention:
+   - **In the chat reply to the user**: cite pages with **wiki-root-relative** MD links, e.g. `[Page Name](wiki/concepts/Page Name.md)`. Include the full `wiki/...` prefix so the user can copy the path and open the file directly — they have no "current file" context to resolve a relative path against. Wrap paths with spaces in angle brackets.
+   - **In the saved query file** at `outputs/queries/<slug>.md`: use **file-relative** MD links, e.g. `[Page Name](../../wiki/concepts/Page Name.md)` — relative to the query file's own directory.
 5. Save to `outputs/queries/<YYYY-MM-DD>-<question-slug>.md`.
-6. If the answer is durable (a comparison, analysis, or new synthesis) → promote a cleaned-up version to `wiki/concepts/`, add to `index.md`.
+6. If the answer is durable (a comparison, analysis, or new synthesis) → promote a cleaned-up version to `wiki/concepts/`. Links inside that new page are file-relative (relative to its own location under `wiki/concepts/`). Add to `index.md`.
 7. Log: `## [HH:MM] query | <question-slug>` (and a separate `## [HH:MM] promote | ...` line if promoted).
 
 ### 4. `lint`
