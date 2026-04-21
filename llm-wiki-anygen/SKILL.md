@@ -325,9 +325,10 @@ The LLM rebuilds `index.md` on every compile and touches it on every ingest. For
 ```
 
 Rules:
+- **Every bullet in `index.md` is a clickable MD link — never plain text.** `index.md` exists so the user and the agent can jump to any page in one click; a bullet like `- RuView` with no link is a dead weight entry that defeats the whole point. If you cannot produce a working path, the page does not exist yet — list it under "Open Questions" instead of the catalog.
 - Every wiki page must appear exactly once in `index.md`. `lint` enforces this.
-- Folder-split concepts show hierarchy via indented bullets.
-- Paths are **standard MD file-relative** — relative to the current file's directory. Use `<...>` angle brackets around any path that contains spaces.
+- Folder-split concepts show hierarchy via indented bullets — the parent's `index.md` link stays the primary entry; sub-pages are nested under it, also as MD links (see the `Bar` example above).
+- Paths are **standard MD file-relative** — relative to `wiki/index.md`'s own directory (i.e. `wiki/`), so `concepts/Foo.md`, `entities/Andrej Karpathy.md`, etc. Use `<...>` angle brackets around any path containing spaces.
 - `index.md` + `ANYGEN.md` together are what the AI reads at session start.
 
 ## `log/` format
