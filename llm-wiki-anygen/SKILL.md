@@ -18,6 +18,8 @@ description: >-
 
 # LLM Wiki — Karpathy Knowledge Base Pattern
 
+> **One rule above all:** every link in every chat reply is standard MD — `[Page](wiki/path/to/page.md)`. **Never** `[[Page]]`. No exceptions for "References" sections, no "wiki-style" exceptions, no offering the user a choice. If you are about to type `[[`, stop.
+
 > **Experimental skill — iterating.**
 > Inspired by [Karpathy's llm-wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 
@@ -77,6 +79,17 @@ Path resolution:
 - **In a chat reply**: paths are **wiki-root-relative** and include the `wiki/` prefix (e.g. `[Foo](wiki/concepts/Foo.md)`) — the user has no "current file" to anchor against.
 
 **Do not offer the user a choice between `[[]]` and MD.** It is not a preference; it is a skill rule. If the user has a wiki that still contains `[[]]`, convert it with `scripts/migrate_wikilinks.py`.
+
+**No trailing "References" / "References (wiki)" / "Further reading" block in `[[...]]` form.** When you cite pages at the end of a chat reply, every bullet must be a standard MD link with a **wiki-root-relative** path (include the `wiki/` prefix; wrap paths with spaces in `<...>`):
+
+```markdown
+## References
+- [OpenAI Agents SDK (Python)](<wiki/entities/OpenAI Agents SDK (Python).md>)
+- [Agent Handoff](wiki/concepts/Agent Handoff.md)
+- [Tracing (Agents SDK)](<wiki/concepts/Tracing (Agents SDK).md>)
+```
+
+Do **not** title such a block "References (wiki)" or "Wiki links" — that naming nudges the model back into `[[...]]` habits. Plain "References" or "Related pages" is fine.
 
 ### 1. Divide and conquer
 
