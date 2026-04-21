@@ -2,7 +2,7 @@
 name: llm-wiki-anygen
 description: >-
   Build and maintain a Karpathy-style LLM knowledge base for Anygen — a self-compiling
-  Obsidian markdown wiki where an Agent ingests raw sources, compiles
+  markdown wiki where an Agent ingests raw sources, compiles
   cross-linked concept/entity/summary pages, answers queries against the
   corpus, lints the graph for health, and audits in-context human feedback
   filed from Obsidian or the local web viewer. Use when (1) scaffolding a
@@ -18,7 +18,7 @@ description: >-
 
 # LLM Wiki — Karpathy Knowledge Base Pattern
 
-> **One rule above all:** every link in every chat reply is standard MD — `[Page](wiki/path/to/page.md)`. **Never** `[[Page]]`. No exceptions for "References" sections, no "wiki-style" exceptions, no offering the user a choice. If you are about to type `[[`, stop.
+> **Links:** every link in every output is a standard CommonMark MD link. In chat replies, paths are wiki-root-relative — `[Page](wiki/path/to/page.md)`. Inside a wiki file, paths are relative to the file's own directory. Wrap paths containing spaces in `<...>`.
 
 > **Experimental skill — iterating.**
 > Inspired by [Karpathy's llm-wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
@@ -63,33 +63,28 @@ The wiki is a living artifact with **five operations** — `compile`, `ingest`, 
 
 Five rules govern everything below. If a future instruction contradicts one, flag it to the user before acting.
 
-### 0. Links are standard MD — `[[wikilinks]]` are banned
+### 0. Links are standard MD
 
-Every intra-wiki reference, in every file this skill produces (wiki pages, summaries, query outputs, audit resolutions, log entries) and in **every chat reply** to the user, must use standard CommonMark link syntax:
+Every intra-wiki reference — in every file this skill produces (wiki pages, summaries, query outputs, audit resolutions, log entries) and in every chat reply to the user — uses standard CommonMark link syntax:
 
 ```markdown
 [Page Name](relative/path/to/page.md)
 [Page with spaces](<relative/path with spaces.md>)
 ```
 
-Do **not** use `[[Page Name]]`, `[[folder/Page|Alias]]`, or `![[embed.png]]`. These render only in Obsidian; in every other surface (chat UIs, web viewer, GitHub, plain terminal) they appear as literal brackets and look broken.
+Path basis:
+- **Inside a file written to disk** (wiki page, summary, query file, etc.): paths are relative to that file's own directory. Compute with mental `posixpath.relpath(target, current_dir)`.
+- **In a chat reply**: paths are wiki-root-relative and include the `wiki/` prefix (e.g. `[Foo](wiki/concepts/Foo.md)`) — the user has no "current file" to anchor against.
+- Any path containing spaces is wrapped in angle brackets: `[Agents SDK](<wiki/entities/OpenAI Agents SDK.md>)`.
 
-Path resolution:
-- **Inside a file written to disk** (wiki page, summary, query file, etc.): paths are **relative to that file's own directory**. Compute with mental `posixpath.relpath(target, current_dir)`.
-- **In a chat reply**: paths are **wiki-root-relative** and include the `wiki/` prefix (e.g. `[Foo](wiki/concepts/Foo.md)`) — the user has no "current file" to anchor against.
-
-**Do not offer the user a choice between `[[]]` and MD.** It is not a preference; it is a skill rule. If the user has a wiki that still contains `[[]]`, convert it with `scripts/migrate_wikilinks.py`.
-
-**No trailing "References" / "References (wiki)" / "Further reading" block in `[[...]]` form.** When you cite pages at the end of a chat reply, every bullet must be a standard MD link with a **wiki-root-relative** path (include the `wiki/` prefix; wrap paths with spaces in `<...>`):
+**Citation blocks at the end of a chat reply** are titled "References" or "Related pages"; every bullet is an MD link with a wiki-root-relative path:
 
 ```markdown
 ## References
 - [OpenAI Agents SDK (Python)](<wiki/entities/OpenAI Agents SDK (Python).md>)
-- [Agent Handoff](wiki/concepts/Agent Handoff.md)
+- [Agent Handoff](<wiki/concepts/Agent Handoff.md>)
 - [Tracing (Agents SDK)](<wiki/concepts/Tracing (Agents SDK).md>)
 ```
-
-Do **not** title such a block "References (wiki)" or "Wiki links" — that naming nudges the model back into `[[...]]` habits. Plain "References" or "Related pages" is fine.
 
 ### 1. Divide and conquer
 
@@ -199,15 +194,13 @@ Add a new source. **One source typically touches 5–15 wiki pages.**
 
 Answer a question **grounded in the wiki**, not general knowledge.
 
-> ⛔ **Never use `[[wikilink]]` syntax — in any output of this op.** Not in the saved query file, not in the chat reply, not when offering the user examples. `[[]]` only renders inside Obsidian; everywhere else (chat UIs, web viewer, GitHub, plain terminal) it appears as literal double-brackets and looks broken. Do not ask the user whether they'd "prefer wikilinks" — that is not a user preference, it is a skill rule. The only allowed link syntax is standard MD: `[Page Name](path/to/page.md)`.
-
 **Steps**:
 1. Read `wiki/index.md`. Scan for relevant pages by category.
 2. Read the identified pages in full; follow one level of MD links.
 3. If the wiki doesn't have enough material, say so and suggest what to ingest next instead of making something up.
 4. Synthesize the answer. Two outputs, each with its own path convention:
-   - **In the chat reply to the user**: cite pages with **wiki-root-relative** MD links, e.g. `[Page Name](wiki/concepts/Page Name.md)`. Include the full `wiki/...` prefix so the user can copy the path and open the file directly — they have no "current file" context to resolve a relative path against. Wrap paths with spaces in angle brackets.
-   - **In the saved query file** at `outputs/queries/<slug>.md`: use **file-relative** MD links, e.g. `[Page Name](../../wiki/concepts/Page Name.md)` — relative to the query file's own directory.
+   - **In the chat reply to the user**: cite pages with **wiki-root-relative** MD links, e.g. `[Page Name](<wiki/concepts/Page Name.md>)`. Include the full `wiki/...` prefix so the user can copy the path and open the file directly — they have no "current file" context to resolve a relative path against. Any path with spaces is wrapped in `<...>`.
+   - **In the saved query file** at `outputs/queries/<slug>.md`: use **file-relative** MD links, e.g. `[Page Name](<../../wiki/concepts/Page Name.md>)` — relative to the query file's own directory.
 5. Save to `outputs/queries/<YYYY-MM-DD>-<question-slug>.md`.
 6. If the answer is durable (a comparison, analysis, or new synthesis) → promote a cleaned-up version to `wiki/concepts/`. Links inside that new page are file-relative (relative to its own location under `wiki/concepts/`). Add to `index.md`.
 7. Log: `## [HH:MM] query | <question-slug>` (and a separate `## [HH:MM] promote | ...` line if promoted).
@@ -225,7 +218,7 @@ The script reports:
 - **Orphan pages** — pages with no inbound links
 - **Missing index entries** — pages not listed in `wiki/index.md`
 - **Frequently-linked missing pages** — a link target referenced 3+ times but no page exists
-- **Residual wikilinks** — any remaining `[[...]]` (leftover from pre-MD era — run `migrate_wikilinks.py` to convert)
+- **Legacy link residue** — pre-MD link syntax still present in an older wiki; `scripts/migrate_wikilinks.py` converts it to standard MD
 - **log/ shape** — stray files or wrong filenames in `log/`
 - **audit/ shape** — malformed YAML frontmatter in `audit/*.md`
 - **Audit target resolution** — every open audit's `target` file must exist
@@ -351,7 +344,7 @@ Quick grep across history: `grep -rh "^## \[" log/ | tail -20`.
 ## References
 
 - `references/schema-guide.md` — What to put in `ANYGEN.md`
-- `references/article-guide.md` — How to write good wiki articles (length, wikilinks, mermaid, math, divide-and-conquer)
+- `references/article-guide.md` — How to write good wiki articles (length, links, mermaid, math, divide-and-conquer)
 - `references/log-guide.md` — The `log/` folder convention
 - `references/audit-guide.md` — Audit file format, anchor strategy, processing workflow
 - `references/tooling-tips.md` — Obsidian setup, Web Clipper, qmd, plugin + web installation

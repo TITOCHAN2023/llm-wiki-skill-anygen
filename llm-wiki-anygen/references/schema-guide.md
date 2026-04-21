@@ -33,7 +33,7 @@ Every operation appends an entry to `log/YYYYMMDD.md`.
 ### Pages
 - **Concept pages** (`wiki/concepts/`): Title Case noun phrases. E.g., "Market Making Strategy", not "market making" or "MarketMakingStrategy".
 - **Folder-split concepts** (`wiki/concepts/<topic>/`): used when a topic would exceed ~1200 words as a single page. Contains `index.md` + one file per aspect.
-- **Entity pages** (`wiki/entities/`): Proper names. E.g., "Andrej Karpathy", "Obsidian", "Avellaneda-Stoikov Model".
+- **Entity pages** (`wiki/entities/`): Proper names. E.g., "Andrej Karpathy", "OpenAI", "Avellaneda-Stoikov Model".
 - **Summary pages** (`wiki/summaries/`): kebab-case source slug. E.g., "karpathy-llm-wiki-gist".
 
 ### Links

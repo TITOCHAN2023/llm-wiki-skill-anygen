@@ -89,7 +89,7 @@ flowchart LR
 
 ## Relationship to other concepts
 
-- [Related Concept A](Related Concept A.md) — how they relate
+- [Related Concept A](<Related Concept A.md>) — how they relate
 - [Related Concept B](<Related Concept B.md>) — contrast or connection
 
 ## Open questions
@@ -127,7 +127,7 @@ tags: [tag1]
 
 ## Related concepts
 
-- [Concept A](../concepts/Concept A.md) — connection
+- [Concept A](<../concepts/Concept A.md>) — connection
 
 ## Sources
 
@@ -169,8 +169,8 @@ tags: [tag1]
 
 ## Concepts introduced / referenced
 
-- [Concept A](../concepts/Concept A.md)
-- [Entity B](../entities/Entity B.md)
+- [Concept A](<../concepts/Concept A.md>)
+- [Entity B](<../entities/Entity B.md>)
 ```
 
 ## Diagrams — always mermaid

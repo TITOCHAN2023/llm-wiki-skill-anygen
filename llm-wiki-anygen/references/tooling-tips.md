@@ -9,12 +9,12 @@ Practical setup and usage notes for the LLM Wiki stack.
 1. **Attachment folder**: Settings → Files and links → "Attachment folder path" → `raw/assets/`.
 2. **New file location**: Settings → Files and links → "Default location for new notes" → `wiki/concepts/`.
 3. **Download attachments hotkey**: Settings → Hotkeys → search "Download attachments" → bind to `Ctrl+Shift+D`. After clipping an article, hit the hotkey to download all images locally.
-4. **Link format** (important — this wiki uses standard MD links, not `[[wikilinks]]`):
-   - Settings → Files and links → **Use [[Wikilinks]]** → **OFF**
+4. **Link format** — configure Obsidian to emit standard MD links:
+   - Settings → Files and links → toggle the "Use Wikilinks" option to **OFF**
    - Settings → Files and links → **New link format** → **Relative path to file**
    - Settings → Files and links → **Detect all file extensions** → **ON** (so `.md` links show up in the graph)
 
-With these settings, Obsidian produces and resolves `[Page](relative/path.md)` natively — backlinks, graph view, and rename-tracking all work across both `[[wikilinks]]` and MD links, so if you ever paste something that uses the old style, it still connects. Run `scripts/migrate_wikilinks.py` to convert.
+With these settings, Obsidian produces and resolves `[Page](relative/path.md)` natively — backlinks, graph view, and rename-tracking all work as expected. If you inherit a vault that uses an older link syntax, `scripts/migrate_wikilinks.py` converts it to standard MD.
 
 ### Plugins to install
 
@@ -59,7 +59,7 @@ The plugin uses the shared `audit-shared` library, so files it writes are byte-i
 
 ## Web viewer — `web/`
 
-Local Node.js server that renders the wiki with mermaid, KaTeX, and wikilinks, and lets you file feedback from your browser.
+Local Node.js server that renders the wiki with mermaid and KaTeX, resolves MD links as clickable navigation, and lets you file feedback from your browser.
 
 ```bash
 cd web
