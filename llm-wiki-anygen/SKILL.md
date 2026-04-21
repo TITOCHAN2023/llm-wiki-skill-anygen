@@ -1,5 +1,5 @@
 ---
-name: llm-wiki
+name: llm-wiki-anygen
 description: >-
   Build and maintain a Karpathy-style LLM knowledge base for Anygen — a self-compiling
   Obsidian markdown wiki where an Agent ingests raw sources, compiles

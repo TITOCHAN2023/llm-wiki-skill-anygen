@@ -1,4 +1,4 @@
-# llm-wiki
+# llm-wiki-anygen
 
 **A Claw Agent Skill for building Karpathy-style LLM knowledge bases.**
 
@@ -25,16 +25,16 @@ Both tools share a single TypeScript library (`audit-shared/`) so audit files wr
 
 ```bash
 # Copy the skill into your agent's skills directory
-cp -r llm-wiki/ <your skill directory>
+cp -r llm-wiki-anygen/ <your skill directory>
 ```
 
-Then reference it in your agent config, or simply paste `llm-wiki/SKILL.md` into your agent context.
+Then reference it in your agent config, or simply paste `llm-wiki-anygen/SKILL.md` into your agent context.
 
 ## Quick start
 
 ```bash
 # 1. Scaffold a new wiki
-python3 llm-wiki/scripts/scaffold.py <your knowledge path>/my-wiki "My Research Topic"
+python3 llm-wiki-anygen/scripts/scaffold.py <your knowledge path>/my-wiki "My Research Topic"
 
 # 2. Add a source
 cp my-article.md <your knowledge path>/my-wiki/raw/articles/
@@ -44,10 +44,10 @@ cp my-article.md <your knowledge path>/my-wiki/raw/articles/
 # 4. Ask questions: "what does the wiki say about X?"
 
 # 5. Run lint periodically
-python3 llm-wiki/scripts/lint_wiki.py <your knowledge path>/my-wiki
+python3 llm-wiki-anygen/scripts/lint_wiki.py <your knowledge path>/my-wiki
 
 # 6. File a comment from the web viewer or Obsidian plugin, then process it
-python3 llm-wiki/scripts/audit_review.py <your knowledge path>/my-wiki --open
+python3 llm-wiki-anygen/scripts/audit_review.py <your knowledge path>/my-wiki --open
 # then tell the agent: "audit: process the open comments"
 ```
 
@@ -55,7 +55,7 @@ python3 llm-wiki/scripts/audit_review.py <your knowledge path>/my-wiki --open
 
 ```
 llm-wiki-skill/
-├── llm-wiki/                    ← The skill
+├── llm-wiki-anygen/             ← The skill
 │   ├── SKILL.md                 ← Main skill file (read by agent)
 │   ├── references/
 │   │   ├── schema-guide.md      ← ANYGEN.md schema template

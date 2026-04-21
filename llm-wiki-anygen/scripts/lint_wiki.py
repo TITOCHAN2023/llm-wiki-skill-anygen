@@ -10,13 +10,17 @@ Example:
 
 Checks:
   1. Dead links — [text](path.md) whose resolved target doesn't exist
-  2. Orphan pages — wiki pages with no inbound links
-  3. Missing index entries — wiki pages not listed in wiki/index.md
-  4. Frequently-missing targets — hrefs referenced 3+ times but no file exists
-  5. Residual wikilinks — leftover [[...]] syntax (run migrate_wikilinks.py)
-  6. log/ shape — every file matches YYYYMMDD.md and has the right H1
-  7. audit/ shape — every audit/*.md parses as a valid AuditEntry
-  8. Audit targets — every open audit's `target` file must exist
+  2. Malformed link URLs — [text](url with spaces.md) that must be wrapped in
+     <...> per CommonMark. Silently dropped by strict parsers (including the
+     web viewer) — they'd otherwise manifest as phantom orphan / missing-index
+     warnings with no hint at the root cause.
+  3. Orphan pages — wiki pages with no inbound links
+  4. Missing index entries — wiki pages not listed in wiki/index.md
+  5. Frequently-missing targets — hrefs referenced 3+ times but no file exists
+  6. Residual wikilinks — leftover [[...]] syntax (run migrate_wikilinks.py)
+  7. log/ shape — every file matches YYYYMMDD.md and has the right H1
+  8. audit/ shape — every audit/*.md parses as a valid AuditEntry
+  9. Audit targets — every open audit's `target` file must exist
 
 Link conventions enforced:
   - All intra-wiki links use standard MD syntax: [text](relative/path.md).
@@ -52,6 +56,28 @@ MD_LINK_RE = re.compile(
     """,
     re.VERBOSE,
 )
+# Detects `[text](url with spaces.md)` — URL contains unescaped whitespace but
+# is not wrapped in <...>. Strict CommonMark drops these silently (see
+# MD_LINK_RE's `bare` branch, which forbids whitespace), producing phantom
+# orphan / missing-index warnings downstream. This pattern explicitly hunts
+# for the malformed shape so we can flag it with a root-cause message.
+MALFORMED_LINK_RE = re.compile(
+    r"""
+    !?\[[^\]\n]*\]\(
+        \s*
+        (?!<)                               # skip the legal bracketed form
+        (?P<url>
+            [^)<>\n]*?                      # URL body (no parens/angles/newlines)
+            \s                              # at least one raw whitespace char
+            [^)<>\n]*?
+            \.md
+            (?:\#[^)<>\n]*)?                # optional #anchor
+        )
+        \s*
+    \)
+    """,
+    re.VERBOSE,
+)
 # Leftover Obsidian-style wikilink — kept only to warn users to migrate.
 RESIDUAL_WIKILINK_RE = re.compile(r"\[\[[^\]\n]+?\]\]")
 LOG_FILENAME_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})\.md$")
@@ -78,6 +104,21 @@ def extract_md_link_hrefs(text: str) -> list[str]:
         if not href or EXTERNAL_URL_RE.match(href):
             continue
         out.append(href)
+    return out
+
+
+def extract_malformed_link_urls(text: str) -> list[tuple[int, str]]:
+    """Return every `[text](url)` where the URL has raw whitespace but is not
+    wrapped in <...>. Each item is (line_number, offending_url).
+    These are CommonMark-invalid and invisible to MD_LINK_RE — we surface them
+    so users aren't debugging phantom orphan warnings."""
+    out: list[tuple[int, str]] = []
+    for m in MALFORMED_LINK_RE.finditer(text):
+        url = m.group("url").strip()
+        if EXTERNAL_URL_RE.match(url):
+            continue
+        line_no = text.count("\n", 0, m.start()) + 1
+        out.append((line_no, url))
     return out
 
 
@@ -179,7 +220,28 @@ def lint(root: str) -> int:
     else:
         print("✅ No dead links")
 
-    # ── Pass 2: orphan pages ────────────────────────────────────────────────
+    # ── Pass 2: malformed link URLs (unquoted whitespace) ──────────────────
+    malformed: list[tuple[Path, int, str]] = []
+    for md_file in all_wiki_files:
+        text = md_file.read_text(encoding="utf-8")
+        for line_no, url in extract_malformed_link_urls(text):
+            malformed.append((md_file, line_no, url))
+    if malformed:
+        print(
+            f"\n🟡 Malformed link URLs ({len(malformed)}) — whitespace in URL "
+            f"but not wrapped in <...>:"
+        )
+        for source, line_no, url in malformed:
+            print(f"   {source.relative_to(root_path)}:{line_no} → ({url})")
+        print(
+            "   fix: wrap the URL in angle brackets, e.g. "
+            "[Page Name](<path with space.md>)"
+        )
+        issues += len(malformed)
+    else:
+        print("✅ No malformed link URLs")
+
+    # ── Pass 3: orphan pages ────────────────────────────────────────────────
     orphans = [
         p for p in all_wiki_files
         if p != index_path and p not in inbound
@@ -192,7 +254,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No orphan pages")
 
-    # ── Pass 3: missing index entries ───────────────────────────────────────
+    # ── Pass 4: missing index entries ───────────────────────────────────────
     if index_path.exists():
         index_text = index_path.read_text(encoding="utf-8")
         linked_from_index: set[Path] = set()
@@ -214,7 +276,7 @@ def lint(root: str) -> int:
     else:
         print("⚠️  wiki/index.md not found — skipping index check")
 
-    # ── Pass 4: frequently-missing targets ─────────────────────────────────
+    # ── Pass 5: frequently-missing targets ─────────────────────────────────
     frequent_missing = [
         (key, count) for key, count in missing_href_counts.items() if count >= 3
     ]
@@ -231,7 +293,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No frequently-missing targets")
 
-    # ── Pass 5: residual wikilinks ─────────────────────────────────────────
+    # ── Pass 6: residual wikilinks ─────────────────────────────────────────
     residual_hits: list[tuple[Path, int]] = []
     for md_file in all_wiki_files:
         text = md_file.read_text(encoding="utf-8")
@@ -250,7 +312,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No residual [[wikilinks]]")
 
-    # ── Pass 6: log/ shape ───────────────────────────────────────────────────
+    # ── Pass 7: log/ shape ───────────────────────────────────────────────────
     if log_path.exists() and log_path.is_dir():
         log_issues: list[str] = []
         for p in sorted(log_path.iterdir()):
@@ -277,7 +339,7 @@ def lint(root: str) -> int:
     else:
         print("⚠️  log/ directory not found — skipping log shape check")
 
-    # ── Pass 7: audit/ shape ─────────────────────────────────────────────────
+    # ── Pass 8: audit/ shape ─────────────────────────────────────────────────
     audit_targets_to_check: list[tuple[str, str]] = []
     if audit_path.exists() and audit_path.is_dir():
         audit_files = [
@@ -323,7 +385,7 @@ def lint(root: str) -> int:
     else:
         print("⚠️  audit/ directory not found — skipping audit shape check")
 
-    # ── Pass 8: audit targets exist ──────────────────────────────────────────
+    # ── Pass 9: audit targets exist ──────────────────────────────────────────
     missing_targets: list[tuple[str, str]] = []
     for audit_id, target in audit_targets_to_check:
         target_path = root_path / target
