@@ -43,7 +43,7 @@ If a concept page **would** exceed ~1200 words, do not write it as a single file
 
    ## Sources
 
-   - [<slug>](../../summaries/<slug>.md)
+   - [<slug>](summaries/<slug>.md)
    ```
 3. Write each `<aspect-N>.md` as a focused 400–1200 word page.
 4. Update `wiki/index.md` to show the hierarchy with indented bullets under the folder-split entry.
@@ -89,8 +89,8 @@ flowchart LR
 
 ## Relationship to other concepts
 
-- [Related Concept A](<Related Concept A.md>) — how they relate
-- [Related Concept B](<Related Concept B.md>) — contrast or connection
+- [Related Concept A](<concepts/Related Concept A.md>) — how they relate
+- [Related Concept B](<concepts/Related Concept B.md>) — contrast or connection
 
 ## Open questions
 
@@ -98,11 +98,11 @@ flowchart LR
 
 ## Sources
 
-- [source-slug-1](../summaries/source-slug-1.md) — (date) one-line description
-- [source-slug-2](../summaries/source-slug-2.md) — (date) one-line description
+- [source-slug-1](summaries/source-slug-1.md) — (date) one-line description
+- [source-slug-2](summaries/source-slug-2.md) — (date) one-line description
 ```
 
-> Paths above assume this concept page lives at `wiki/concepts/<Title>.md`. From there, sibling concepts are `<Other>.md`, entities are `../entities/<Name>.md`, summaries are `../summaries/<slug>.md`. **Always compute paths relative to the current file's directory.** Wrap paths with spaces in angle brackets: `[Foo](<Foo with spaces.md>)`.
+> All paths inside `wiki/` files are **wiki-root-relative** — relative to the `wiki/` directory, never to the file's own location. **`../` is banned.** From any wiki file: concepts are `concepts/Other.md`, entities are `entities/Name.md`, summaries are `summaries/slug.md`. Wrap paths with spaces in angle brackets: `[Foo](<concepts/Foo with spaces.md>)`.
 
 ## Entity page structure
 
@@ -127,11 +127,11 @@ tags: [tag1]
 
 ## Related concepts
 
-- [Concept A](<../concepts/Concept A.md>) — connection
+- [Concept A](<concepts/Concept A.md>) — connection
 
 ## Sources
 
-- [source-slug](../summaries/source-slug.md)
+- [source-slug](summaries/source-slug.md)
 ```
 
 ## Summary page structure
@@ -169,8 +169,8 @@ tags: [tag1]
 
 ## Concepts introduced / referenced
 
-- [Concept A](<../concepts/Concept A.md>)
-- [Entity B](<../entities/Entity B.md>)
+- [Concept A](<concepts/Concept A.md>)
+- [Entity B](<entities/Entity B.md>)
 ```
 
 ## Diagrams — always mermaid
@@ -224,25 +224,25 @@ The web viewer renders math server-side with KaTeX. Obsidian renders it natively
 
 ## Link rules
 
-All links are **standard MD file-relative** — path relative to the current file's directory, ending in `.md`. Wrap any path containing spaces in `<...>` angle brackets.
+All links inside `wiki/` files are **wiki-root-relative** — path relative to the `wiki/` directory, ending in `.md`. **`../` is banned** in any wiki-internal link. Wrap any path containing spaces in `<...>` angle brackets.
 
 1. **Link first mention** of every entity or concept — don't wait for "a natural place".
 2. **Link maximum twice per article** — don't over-link the same page.
 3. **Link concepts that exist** — check `wiki/index.md` before creating a new link target.
-4. **For folder-split pages**, link the index file: `[Foo](concepts/Foo/index.md)` (with path adjusted relative to the source).
+4. **For folder-split pages**, link the index file: `[Foo](concepts/Foo/index.md)`.
 5. **Backlink audit** — after writing a new article, grep existing articles for the new page's title and add incoming links.
+6. **Never link back to `index.md`** from concept/entity/summary pages. The index links to pages, not the other way around.
 
-### Common relative paths (writing from `wiki/concepts/<Title>.md`)
+### Wiki-root-relative paths (same for ALL files under `wiki/`)
 | Target | Link |
 |---|---|
-| Sibling concept | `[Other](Other.md)` |
-| Entity | `[Name](../entities/Name.md)` |
-| Summary | `[slug](../summaries/slug.md)` |
-| Folder-split sub-page | `[aspect](Title-Split/aspect.md)` |
-| Raw reference | `[slug](../../raw/refs/slug.md)` |
+| Concept | `[Other](concepts/Other.md)` |
+| Entity | `[Name](entities/Name.md)` |
+| Summary | `[slug](summaries/slug.md)` |
+| Folder-split index | `[Topic](concepts/Topic/index.md)` |
+| Folder-split sub-page | `[aspect](concepts/Topic/aspect.md)` |
 
-### Common relative paths (writing from `wiki/concepts/<Topic>/aspect.md`)
-Add one extra `../` compared to above — e.g. sibling concept becomes `../Other.md`, entity becomes `../../entities/Name.md`.
+These paths are identical regardless of where the linking file lives (`wiki/concepts/`, `wiki/entities/`, `wiki/summaries/`, or `wiki/concepts/<Topic>/`). No `../` needed, no depth calculation required.
 
 ## Handling contradictions between sources
 
@@ -254,7 +254,7 @@ When two sources contradict each other:
 4. Do NOT silently pick one — contradictions are valuable signal.
 
 Example:
-> Source A (2024) claims X. Source B (2026) claims Y, which contradicts A. It's unclear whether this reflects a methodological difference or an error in one source. See [source-a](../summaries/source-a.md) and [source-b](../summaries/source-b.md).
+> Source A (2024) claims X. Source B (2026) claims Y, which contradicts A. It's unclear whether this reflects a methodological difference or an error in one source. See [source-a](summaries/source-a.md) and [source-b](summaries/source-b.md).
 
 If a human later files an `audit` comment resolving the contradiction, update the article and move the audit to `audit/resolved/` with a resolution note.
 

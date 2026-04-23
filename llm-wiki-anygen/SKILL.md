@@ -18,7 +18,7 @@ description: >-
 
 # LLM Wiki — Karpathy Knowledge Base Pattern
 
-> **Links:** every link in every output is a standard CommonMark MD link. In chat replies, paths are wiki-root-relative — `[Page](wiki/path/to/page.md)`. Inside a wiki file, paths are relative to the file's own directory. Wrap paths containing spaces in `<...>`.
+> **Links:** every link in every output is a standard CommonMark MD link. In chat replies, paths are wiki-root-relative — `[Page](wiki/path/to/page.md)`. Inside any wiki file (`wiki/**/*.md`), paths are **wiki-root-relative** — relative to the `wiki/` directory, never the file's own directory. **`../` is banned** in wiki-internal links; every path starts from the `wiki/` root (e.g. `concepts/Foo.md`, `entities/Name.md`, `summaries/slug.md`). Wrap paths containing spaces in `<...>`.
 
 > **Experimental skill — iterating.**
 > Inspired by [Karpathy's llm-wiki Gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
@@ -73,7 +73,8 @@ Every intra-wiki reference — in every file this skill produces (wiki pages, su
 ```
 
 Path basis:
-- **Inside a file written to disk** (wiki page, summary, query file, etc.): paths are relative to that file's own directory. Compute with mental `posixpath.relpath(target, current_dir)`.
+- **Inside any `wiki/` file** (concept, entity, summary, index): paths are **wiki-root-relative** — always relative to the `wiki/` directory. **Never use `../`**; every path starts from the wiki root: `concepts/Foo.md`, `entities/Name.md`, `summaries/slug.md`, `index.md`. This holds regardless of the file's nesting depth (folder-split sub-pages use the same convention).
+- **In the saved query file** at `outputs/queries/<slug>.md`: paths are **file-relative** to the query file's own directory, e.g. `[Page](<../../wiki/concepts/Page.md>)`.
 - **In a chat reply**: paths are wiki-root-relative and include the `wiki/` prefix (e.g. `[Foo](wiki/concepts/Foo.md)`) — the user has no "current file" to anchor against.
 - Any path containing spaces is wrapped in angle brackets: `[Agents SDK](<wiki/entities/OpenAI Agents SDK.md>)`.
 
@@ -140,7 +141,7 @@ Large binaries (videos, model weights, installers, datasets, large PDFs >10 MB) 
   ---
   ```
   followed by a short description of what it is and why it matters to this wiki.
-- Wiki pages cite it like any other source — a standard MD link relative to the current file, e.g. `[slug](../../raw/refs/<slug>.md)` from a page under `wiki/concepts/`.
+- Wiki pages cite it via a wiki-root-relative pointer. Since `raw/` is outside `wiki/`, use `../raw/refs/<slug>.md` only in `outputs/queries/` files (file-relative). Inside `wiki/` files, reference the summary instead: `[slug](summaries/<slug>.md)`.
 
 This keeps the wiki repo git-friendly and portable.
 
@@ -202,7 +203,7 @@ Answer a question **grounded in the wiki**, not general knowledge.
    - **In the chat reply to the user**: cite pages with **wiki-root-relative** MD links, e.g. `[Page Name](<wiki/concepts/Page Name.md>)`. Include the full `wiki/...` prefix so the user can copy the path and open the file directly — they have no "current file" context to resolve a relative path against. Any path with spaces is wrapped in `<...>`.
    - **In the saved query file** at `outputs/queries/<slug>.md`: use **file-relative** MD links, e.g. `[Page Name](<../../wiki/concepts/Page Name.md>)` — relative to the query file's own directory.
 5. Save to `outputs/queries/<YYYY-MM-DD>-<question-slug>.md`.
-6. If the answer is durable (a comparison, analysis, or new synthesis) → promote a cleaned-up version to `wiki/concepts/`. Links inside that new page are file-relative (relative to its own location under `wiki/concepts/`). Add to `index.md`.
+6. If the answer is durable (a comparison, analysis, or new synthesis) → promote a cleaned-up version to `wiki/concepts/`. Links inside that new page are **wiki-root-relative** (relative to `wiki/`, e.g. `entities/Name.md`, never `../entities/Name.md`). Add to `index.md`.
 7. Log: `## [HH:MM] query | <question-slug>` (and a separate `## [HH:MM] promote | ...` line if promoted).
 
 ### 4. `lint`
@@ -321,7 +322,7 @@ Rules:
 - **Every bullet in `index.md` is a clickable MD link — never plain text.** `index.md` exists so the user and the agent can jump to any page in one click; a bullet like `- RuView` with no link is a dead weight entry that defeats the whole point. If you cannot produce a working path, the page does not exist yet — list it under "Open Questions" instead of the catalog.
 - Every wiki page must appear exactly once in `index.md`. `lint` enforces this.
 - Folder-split concepts show hierarchy via indented bullets — the parent's `index.md` link stays the primary entry; sub-pages are nested under it, also as MD links (see the `Bar` example above).
-- Paths are **standard MD file-relative** — relative to `wiki/index.md`'s own directory (i.e. `wiki/`), so `concepts/Foo.md`, `entities/Andrej Karpathy.md`, etc. Use `<...>` angle brackets around any path containing spaces.
+- Paths are **wiki-root-relative** — relative to the `wiki/` directory, so `concepts/Foo.md`, `entities/Andrej Karpathy.md`, etc. This is the same convention used by all files under `wiki/`. Use `<...>` angle brackets around any path containing spaces.
 - `index.md` + `ANYGEN.md` together are what the AI reads at session start.
 
 ## `log/` format

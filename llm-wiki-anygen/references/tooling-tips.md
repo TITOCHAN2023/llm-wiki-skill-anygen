@@ -127,7 +127,7 @@ import matplotlib.pyplot as plt
 plt.savefig('outputs/charts/my-analysis.png')
 ```
 
-Embed in a wiki article with a standard MD image link (path relative to the wiki page): `![my analysis](../../outputs/charts/my-analysis.png)`.
+To reference from a wiki page, copy the image into the wiki tree (e.g. `wiki/assets/my-analysis.png`) and embed with a wiki-root-relative path: `![my analysis](assets/my-analysis.png)`. Do not use `../../outputs/...` — `../` is banned inside `wiki/` files.
 
 ## Git workflow
 
