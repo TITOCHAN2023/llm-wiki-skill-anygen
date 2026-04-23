@@ -47,7 +47,7 @@ export function buildGraph(wikiRoot: string): GraphData {
     nodes.set(id, { id, label: stem, path: id, group, degree: 0, title });
   }
 
-  // Build edges by resolving each MD link against its source file's dir.
+  // Build edges by resolving each MD link from the wiki/ root.
   const edges: GraphEdge[] = [];
   const seenEdges = new Set<string>();
   for (const f of files) {
@@ -60,8 +60,16 @@ export function buildGraph(wikiRoot: string): GraphData {
       const href = (m[1] ?? m[2] ?? "").trim();
       const [pathPart] = splitAnchor(href);
       if (!pathPart || EXTERNAL_URL_RE.test(pathPart)) continue;
+      const normalized = path.posix.normalize(pathPart);
+      if (
+        normalized === ".." ||
+        normalized.startsWith("../") ||
+        path.posix.isAbsolute(normalized)
+      ) {
+        continue;
+      }
 
-      const resolvedAbs = path.resolve(path.dirname(f), pathPart);
+      const resolvedAbs = path.resolve(wikiDir, normalized);
       const relFromRoot = path
         .relative(wikiRoot, resolvedAbs)
         .split(path.sep)

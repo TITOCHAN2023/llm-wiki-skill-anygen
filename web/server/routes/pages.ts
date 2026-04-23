@@ -61,7 +61,7 @@ export function handleRaw(cfg: ServerConfig) {
       res.status(404).send("not found");
       return;
     }
-    res.type("text/markdown").send(fs.readFileSync(full));
+    res.sendFile(full);
   };
 }
 

@@ -24,7 +24,8 @@ Checks:
 
 Link conventions enforced:
   - All intra-wiki links use standard MD syntax: [text](relative/path.md).
-  - Paths are resolved against the source file's own directory (POSIX semantics).
+  - Inside wiki/ files, paths are wiki-root-relative: concepts/Foo.md,
+    entities/Name.md, summaries/slug.md. `../` is banned.
   - Paths with spaces may be wrapped in angle brackets: [text](<path with spaces.md>).
 
 Exit codes:
@@ -122,12 +123,13 @@ def extract_malformed_link_urls(text: str) -> list[tuple[int, str]]:
     return out
 
 
-def resolve_href(source_abs: Path, href: str) -> Path | None:
-    """Resolve `href` relative to the source file's directory, POSIX-style.
-    Returns the resolved absolute Path if the file exists, else None."""
-    base = source_abs.parent.as_posix()
-    joined = posixpath.normpath(posixpath.join(base, href))
-    target = Path(joined)
+def resolve_href(wiki_root: Path, href: str) -> Path | None:
+    """Resolve `href` from the wiki/ root.
+    Returns the resolved absolute Path if the file exists inside wiki/, else None."""
+    joined = posixpath.normpath(href)
+    if joined.startswith("../") or joined == "..":
+        return None
+    target = wiki_root / Path(joined)
     if target.exists() and target.is_file():
         return target.resolve()
     return None
@@ -201,13 +203,11 @@ def lint(root: str) -> int:
     for md_file in all_wiki_files:
         text = md_file.read_text(encoding="utf-8")
         for href in extract_md_link_hrefs(text):
-            target = resolve_href(md_file, href)
+            target = resolve_href(wiki_path, href)
             if target is None:
                 dead_links.append((md_file, href))
-                # Normalise for grouping — key on (source-dir + href) resolved path.
-                resolved_key = posixpath.normpath(
-                    posixpath.join(md_file.parent.as_posix(), href)
-                )
+                # Normalise for grouping using the wiki-root-relative target key.
+                resolved_key = posixpath.normpath(href)
                 missing_href_counts[resolved_key] += 1
             elif target in wiki_file_set:
                 inbound[target].append(md_file)
@@ -259,7 +259,7 @@ def lint(root: str) -> int:
         index_text = index_path.read_text(encoding="utf-8")
         linked_from_index: set[Path] = set()
         for href in extract_md_link_hrefs(index_text):
-            resolved = resolve_href(index_path, href)
+            resolved = resolve_href(wiki_path, href)
             if resolved:
                 linked_from_index.add(resolved)
         not_in_index = [
