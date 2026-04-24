@@ -9,18 +9,21 @@ Example:
     python3 lint_wiki.py <your knowledge path>/wikis/ai-research
 
 Checks:
-  1. Dead links — [text](path.md) whose resolved target doesn't exist
-  2. Malformed link URLs — [text](url with spaces.md) that must be wrapped in
+  1. Banned ../ paths — wiki-internal links must be wiki-root-relative;
+     any href containing '../' is a convention violation regardless of whether
+     the target file exists.
+  2. Dead links — [text](path.md) whose resolved target doesn't exist
+  3. Malformed link URLs — [text](url with spaces.md) that must be wrapped in
      <...> per CommonMark. Silently dropped by strict parsers (including the
      web viewer) — they'd otherwise manifest as phantom orphan / missing-index
      warnings with no hint at the root cause.
-  3. Orphan pages — wiki pages with no inbound links
-  4. Missing index entries — wiki pages not listed in wiki/index.md
-  5. Frequently-missing targets — hrefs referenced 3+ times but no file exists
-  6. Residual wikilinks — leftover [[...]] syntax (run migrate_wikilinks.py)
-  7. log/ shape — every file matches YYYYMMDD.md and has the right H1
-  8. audit/ shape — every audit/*.md parses as a valid AuditEntry
-  9. Audit targets — every open audit's `target` file must exist
+  4. Orphan pages — wiki pages with no inbound links
+  5. Missing index entries — wiki pages not listed in wiki/index.md
+  6. Frequently-missing targets — hrefs referenced 3+ times but no file exists
+  7. Residual wikilinks — leftover [[...]] syntax (run migrate_wikilinks.py)
+  8. log/ shape — every file matches YYYYMMDD.md and has the right H1
+  9. audit/ shape — every audit/*.md parses as a valid AuditEntry
+  10. Audit targets — every open audit's `target` file must exist
 
 Link conventions enforced:
   - All intra-wiki links use standard MD syntax: [text](relative/path.md).
@@ -135,6 +138,22 @@ def resolve_href(wiki_root: Path, href: str) -> Path | None:
     return None
 
 
+def canonicalize_href_from_source(source_abs: Path, wiki_root: Path, href: str) -> str | None:
+    """Interpret `href` using file-relative semantics, then convert it to the
+    canonical wiki-root-relative form.
+
+    This is only used to produce a helpful fix suggestion and to keep dead-link
+    / orphan reporting accurate for broken `../` links."""
+    try:
+        source_dir_rel = source_abs.parent.relative_to(wiki_root).as_posix()
+    except ValueError:
+        return None
+    joined = posixpath.normpath(posixpath.join(source_dir_rel, href))
+    if joined in (".", "..") or joined.startswith("../"):
+        return None
+    return joined
+
+
 def parse_frontmatter(text: str) -> dict | None:
     """Minimal YAML-ish frontmatter parser. Handles the flat key:value fields
     and one-level lists/arrays actually used by audit files. Does not handle
@@ -197,20 +216,49 @@ def lint(root: str) -> int:
     issues = 0
     inbound: dict[Path, list[Path]] = defaultdict(list)
 
-    # ── Pass 1: dead MD links ──────────────────────────────────────────────
+    # ── Pass 1: banned ../ escape paths ─────────────────────────────────
+    escape_links: list[tuple[Path, str, str | None]] = []
+    # ── Pass 2: dead MD links ──────────────────────────────────────────────
     dead_links: list[tuple[Path, str]] = []
     missing_href_counts: dict[str, int] = defaultdict(int)
     for md_file in all_wiki_files:
         text = md_file.read_text(encoding="utf-8")
         for href in extract_md_link_hrefs(text):
+            target: Path | None = None
+            if "../" in href or href == "..":
+                suggested = canonicalize_href_from_source(md_file, wiki_path, href)
+                escape_links.append((md_file, href, suggested))
+                if suggested is not None:
+                    target = resolve_href(wiki_path, suggested)
+                    if target is None:
+                        dead_links.append((md_file, href))
+                        missing_href_counts[suggested] += 1
+                    elif target in wiki_file_set:
+                        inbound[target].append(md_file)
+                else:
+                    dead_links.append((md_file, href))
+                    missing_href_counts[posixpath.normpath(href)] += 1
+                continue
+
             target = resolve_href(wiki_path, href)
             if target is None:
                 dead_links.append((md_file, href))
-                # Normalise for grouping using the wiki-root-relative target key.
                 resolved_key = posixpath.normpath(href)
                 missing_href_counts[resolved_key] += 1
             elif target in wiki_file_set:
                 inbound[target].append(md_file)
+
+    if escape_links:
+        print(f"\n🔴 Banned '../' paths ({len(escape_links)}) — wiki links must be wiki-root-relative:")
+        for source, href, suggested in escape_links:
+            if suggested is not None:
+                print(f"   {source.relative_to(root_path)} → {href}  (use: {suggested})")
+            else:
+                print(f"   {source.relative_to(root_path)} → {href}  (use: <cannot auto-suggest>)")
+        print("   rule: inside wiki/, all paths start from wiki root — never use ../")
+        issues += len(escape_links)
+    else:
+        print("✅ No banned '../' paths")
 
     if dead_links:
         print(f"\n🔴 Dead links ({len(dead_links)}):")
@@ -220,7 +268,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No dead links")
 
-    # ── Pass 2: malformed link URLs (unquoted whitespace) ──────────────────
+    # ── Pass 3: malformed link URLs (unquoted whitespace) ──────────────────
     malformed: list[tuple[Path, int, str]] = []
     for md_file in all_wiki_files:
         text = md_file.read_text(encoding="utf-8")
@@ -241,7 +289,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No malformed link URLs")
 
-    # ── Pass 3: orphan pages ────────────────────────────────────────────────
+    # ── Pass 4: orphan pages ────────────────────────────────────────────────
     orphans = [
         p for p in all_wiki_files
         if p != index_path and p not in inbound
@@ -254,7 +302,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No orphan pages")
 
-    # ── Pass 4: missing index entries ───────────────────────────────────────
+    # ── Pass 5: missing index entries ───────────────────────────────────────
     if index_path.exists():
         index_text = index_path.read_text(encoding="utf-8")
         linked_from_index: set[Path] = set()
@@ -276,7 +324,7 @@ def lint(root: str) -> int:
     else:
         print("⚠️  wiki/index.md not found — skipping index check")
 
-    # ── Pass 5: frequently-missing targets ─────────────────────────────────
+    # ── Pass 6: frequently-missing targets ─────────────────────────────────
     frequent_missing = [
         (key, count) for key, count in missing_href_counts.items() if count >= 3
     ]
@@ -293,7 +341,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No frequently-missing targets")
 
-    # ── Pass 6: residual wikilinks ─────────────────────────────────────────
+    # ── Pass 7: residual wikilinks ─────────────────────────────────────────
     residual_hits: list[tuple[Path, int]] = []
     for md_file in all_wiki_files:
         text = md_file.read_text(encoding="utf-8")
@@ -312,7 +360,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No residual [[wikilinks]]")
 
-    # ── Pass 7: log/ shape ───────────────────────────────────────────────────
+    # ── Pass 8: log/ shape ───────────────────────────────────────────────────
     if log_path.exists() and log_path.is_dir():
         log_issues: list[str] = []
         for p in sorted(log_path.iterdir()):
@@ -339,7 +387,7 @@ def lint(root: str) -> int:
     else:
         print("⚠️  log/ directory not found — skipping log shape check")
 
-    # ── Pass 8: audit/ shape ─────────────────────────────────────────────────
+    # ── Pass 9: audit/ shape ─────────────────────────────────────────────────
     audit_targets_to_check: list[tuple[str, str]] = []
     if audit_path.exists() and audit_path.is_dir():
         audit_files = [
@@ -385,7 +433,7 @@ def lint(root: str) -> int:
     else:
         print("⚠️  audit/ directory not found — skipping audit shape check")
 
-    # ── Pass 9: audit targets exist ──────────────────────────────────────────
+    # ── Pass 10: audit targets exist ─────────────────────────────────────────
     missing_targets: list[tuple[str, str]] = []
     for audit_id, target in audit_targets_to_check:
         target_path = root_path / target

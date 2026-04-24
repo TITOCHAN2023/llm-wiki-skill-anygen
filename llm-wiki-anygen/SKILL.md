@@ -78,6 +78,17 @@ Path basis:
 - **In a chat reply**: paths are wiki-root-relative and include the `wiki/` prefix (e.g. `[Foo](wiki/concepts/Foo.md)`) — the user has no "current file" to anchor against.
 - Any path containing spaces is wrapped in angle brackets: `[Agents SDK](<wiki/entities/OpenAI Agents SDK.md>)`.
 
+**Anti-pattern — never compute file-relative `../` hops:**
+
+| File being edited | ❌ Wrong (file-relative) | ✅ Correct (wiki-root-relative) |
+|---|---|---|
+| `wiki/concepts/Topic/sub.md` | `[X](../../entities/X.md)` | `[X](entities/X.md)` |
+| `wiki/concepts/Topic/sub.md` | `[Y](../Other.md)` | `[Y](concepts/Other.md)` |
+| `wiki/entities/Foo.md` | `[Bar](../concepts/Bar.md)` | `[Bar](concepts/Bar.md)` |
+| `wiki/summaries/slug.md` | `[E](../entities/E.md)` | `[E](entities/E.md)` |
+
+All paths are written **as if you are at the `wiki/` directory**, regardless of the file's actual nesting depth. Never count `../` hops — just write the path from `wiki/` root.
+
 **Citation blocks at the end of a chat reply** are titled "References" or "Related pages"; every bullet is an MD link with a wiki-root-relative path:
 
 ```markdown
@@ -172,7 +183,8 @@ Every action on the wiki is one of these five. Each appends an entry to the curr
 2. For each page over ~1200 words: plan a split into `concepts/<topic>/` with an index + sub-pages. Confirm the plan with the user before writing.
 3. For each pair of near-duplicate pages: propose a merge. Confirm, then rewrite.
 4. Regenerate `wiki/index.md` so every page is listed exactly once.
-5. Log: `## [HH:MM] compile | <what you did — files touched, splits, merges>`
+5. **Link self-check**: grep every written/modified `wiki/` file for `../` — if any link href contains `../`, replace it with the wiki-root-relative equivalent immediately. This is a hard rule, not a guideline.
+6. Log: `## [HH:MM] compile | <what you did — files touched, splits, merges>`
 
 ### 2. `ingest`
 
@@ -189,7 +201,8 @@ Add a new source. **One source typically touches 5–15 wiki pages.**
 4. Create or update relevant concept pages in `wiki/concepts/`. Respect divide-and-conquer: if a concept page would exceed 1200 words, split instead of cramming.
 5. Create or update entity pages in `wiki/entities/` for any new people / tools / papers / organizations referenced.
 6. Update `wiki/index.md` so the new pages appear under the right category.
-7. Log: `## [HH:MM] ingest | <slug> — <one-line description> (touched N pages)`
+7. **Link self-check**: grep every written/modified `wiki/` file for `../` — if any link href contains `../`, replace it with the wiki-root-relative equivalent immediately.
+8. Log: `## [HH:MM] ingest | <slug> — <one-line description> (touched N pages)`
 
 ### 3. `query`
 
@@ -215,6 +228,7 @@ python3 scripts/lint_wiki.py <wiki-root>
 ```
 
 The script reports:
+- **Banned `../` paths** — wiki-internal links that use `../` instead of wiki-root-relative paths (hard error)
 - **Dead links** — `[text](path.md)` whose resolved target doesn't exist
 - **Orphan pages** — pages with no inbound links
 - **Missing index entries** — pages not listed in `wiki/index.md`
@@ -265,7 +279,7 @@ See `references/audit-guide.md` for the full audit file format.
 | **`plugins/obsidian-audit/`** | Obsidian plugin — select text → add feedback → writes to `audit/` |
 | **`web/`** | Local Node.js server — preview the wiki with mermaid/math rendered; select → feedback → `audit/` |
 | `scripts/scaffold.py` | Bootstrap a new wiki directory tree |
-| `scripts/lint_wiki.py` | Seven-pass health check |
+| `scripts/lint_wiki.py` | Ten-pass health check |
 | `scripts/audit_review.py` | Group open/resolved audits by target file |
 | [qmd](https://github.com/tobi/qmd) | Optional local semantic search (useful at >100 pages) |
 
