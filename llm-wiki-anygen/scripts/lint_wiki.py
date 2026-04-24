@@ -12,18 +12,20 @@ Checks:
   1. Banned ../ paths — wiki-internal links must be wiki-root-relative;
      any href containing '../' is a convention violation regardless of whether
      the target file exists.
-  2. Dead links — [text](path.md) whose resolved target doesn't exist
-  3. Malformed link URLs — [text](url with spaces.md) that must be wrapped in
+  2. Banned `wiki/` prefixes — inside wiki/ files, links must start at the
+     wiki root itself (`entities/Foo.md`), not include the `wiki/` segment.
+  3. Dead links — [text](path.md) whose resolved target doesn't exist
+  4. Malformed link URLs — [text](url with spaces.md) that must be wrapped in
      <...> per CommonMark. Silently dropped by strict parsers (including the
      web viewer) — they'd otherwise manifest as phantom orphan / missing-index
      warnings with no hint at the root cause.
-  4. Orphan pages — wiki pages with no inbound links
-  5. Missing index entries — wiki pages not listed in wiki/index.md
-  6. Frequently-missing targets — hrefs referenced 3+ times but no file exists
-  7. Residual wikilinks — leftover [[...]] syntax (run migrate_wikilinks.py)
-  8. log/ shape — every file matches YYYYMMDD.md and has the right H1
-  9. audit/ shape — every audit/*.md parses as a valid AuditEntry
-  10. Audit targets — every open audit's `target` file must exist
+  5. Orphan pages — wiki pages with no inbound links
+  6. Missing index entries — wiki pages not listed in wiki/index.md
+  7. Frequently-missing targets — hrefs referenced 3+ times but no file exists
+  8. Residual wikilinks — leftover [[...]] syntax (run migrate_wikilinks.py)
+  9. log/ shape — every file matches YYYYMMDD.md and has the right H1
+  10. audit/ shape — every audit/*.md parses as a valid AuditEntry
+  11. Audit targets — every open audit's `target` file must exist
 
 Link conventions enforced:
   - All intra-wiki links use standard MD syntax: [text](relative/path.md).
@@ -82,6 +84,50 @@ MALFORMED_LINK_RE = re.compile(
     """,
     re.VERBOSE,
 )
+# Detects raw `../foo/bar.md` path literals anywhere in the file, including
+# malformed markdown links, JSON payloads, code blocks, and prose. This is the
+# hard-rule check for "never write file-relative parent hops inside wiki/".
+BANNED_PARENT_PATH_RE = re.compile(
+    r"""
+    (?P<path>
+        \.\./
+        [^<>"'\n)]*?
+        \.md
+        (?:\#[^<>"'\n)]*)?
+    )
+    """,
+    re.VERBOSE,
+)
+# Detects raw absolute filesystem paths to markdown files, e.g.
+# `/Users/name/wiki/entities/Foo.md`. These are banned inside wiki/ files;
+# paths must be written relative to the wiki/ root instead.
+ABSOLUTE_MD_PATH_RE = re.compile(
+    r"""
+    (?<![A-Za-z0-9._-])
+    (?P<path>
+        /
+        [^<>"'\n)]*?
+        \.md
+        (?:\#[^<>"'\n)]*)?
+    )
+    """,
+    re.VERBOSE,
+)
+# Detects raw `wiki/foo/bar.md` path literals inside wiki/ files. These are
+# also banned because paths should be rooted at the wiki directory itself, not
+# redundantly include the `wiki/` segment.
+WIKI_PREFIX_MD_PATH_RE = re.compile(
+    r"""
+    (?<![A-Za-z0-9._/-])
+    (?P<path>
+        wiki/
+        [^<>"'\n)]*?
+        \.md
+        (?:\#[^<>"'\n)]*)?
+    )
+    """,
+    re.VERBOSE,
+)
 # Leftover Obsidian-style wikilink — kept only to warn users to migrate.
 RESIDUAL_WIKILINK_RE = re.compile(r"\[\[[^\]\n]+?\]\]")
 LOG_FILENAME_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})\.md$")
@@ -126,6 +172,45 @@ def extract_malformed_link_urls(text: str) -> list[tuple[int, str]]:
     return out
 
 
+def extract_banned_parent_paths(text: str) -> list[tuple[int, str]]:
+    """Return every raw `../...md` path literal, regardless of context.
+    Each item is (line_number, offending_path)."""
+    out: list[tuple[int, str]] = []
+    for m in BANNED_PARENT_PATH_RE.finditer(text):
+        path = (m.group("path") or "").strip()
+        if not path:
+            continue
+        line_no = text.count("\n", 0, m.start()) + 1
+        out.append((line_no, path))
+    return out
+
+
+def extract_absolute_md_paths(text: str) -> list[tuple[int, str]]:
+    """Return every raw absolute `/...md` path literal.
+    External URLs are filtered out elsewhere; this scanner is for filesystem
+    paths embedded in markdown, JSON payloads, code blocks, or prose."""
+    out: list[tuple[int, str]] = []
+    for m in ABSOLUTE_MD_PATH_RE.finditer(text):
+        path = (m.group("path") or "").strip()
+        if not path or EXTERNAL_URL_RE.match(path):
+            continue
+        line_no = text.count("\n", 0, m.start()) + 1
+        out.append((line_no, path))
+    return out
+
+
+def extract_wiki_prefix_paths(text: str) -> list[tuple[int, str]]:
+    """Return every raw `wiki/...md` path literal inside a wiki file."""
+    out: list[tuple[int, str]] = []
+    for m in WIKI_PREFIX_MD_PATH_RE.finditer(text):
+        path = (m.group("path") or "").strip()
+        if not path or EXTERNAL_URL_RE.match(path):
+            continue
+        line_no = text.count("\n", 0, m.start()) + 1
+        out.append((line_no, path))
+    return out
+
+
 def resolve_href(wiki_root: Path, href: str) -> Path | None:
     """Resolve `href` from the wiki/ root.
     Returns the resolved absolute Path if the file exists inside wiki/, else None."""
@@ -152,6 +237,28 @@ def canonicalize_href_from_source(source_abs: Path, wiki_root: Path, href: str) 
     if joined in (".", "..") or joined.startswith("../"):
         return None
     return joined
+
+
+def canonicalize_absolute_path(wiki_root: Path, abs_path: str) -> str | None:
+    """Convert an absolute filesystem markdown path into wiki-root-relative
+    form when it points inside `<root>/wiki/`."""
+    try:
+        p = Path(abs_path).resolve()
+    except OSError:
+        return None
+    wiki_dir = wiki_root.resolve()
+    try:
+        return p.relative_to(wiki_dir).as_posix()
+    except ValueError:
+        return None
+
+
+def canonicalize_wiki_prefixed_path(path: str) -> str | None:
+    """Strip the redundant leading `wiki/` from a path literal."""
+    if not path.startswith("wiki/"):
+        return None
+    rel = path[len("wiki/"):]
+    return rel or None
 
 
 def parse_frontmatter(text: str) -> dict | None:
@@ -217,17 +324,27 @@ def lint(root: str) -> int:
     inbound: dict[Path, list[Path]] = defaultdict(list)
 
     # ── Pass 1: banned ../ escape paths ─────────────────────────────────
-    escape_links: list[tuple[Path, str, str | None]] = []
-    # ── Pass 2: dead MD links ──────────────────────────────────────────────
+    escape_links: list[tuple[Path, int, str, str | None]] = []
+    absolute_links: list[tuple[Path, int, str, str | None]] = []
+    wiki_prefix_links: list[tuple[Path, int, str, str | None]] = []
+    # ── Pass 3: dead MD links ──────────────────────────────────────────────
     dead_links: list[tuple[Path, str]] = []
     missing_href_counts: dict[str, int] = defaultdict(int)
     for md_file in all_wiki_files:
         text = md_file.read_text(encoding="utf-8")
+        for line_no, path in extract_banned_parent_paths(text):
+            suggested = canonicalize_href_from_source(md_file, wiki_path, path)
+            escape_links.append((md_file, line_no, path, suggested))
+        for line_no, path in extract_absolute_md_paths(text):
+            suggested = canonicalize_absolute_path(wiki_path, path)
+            absolute_links.append((md_file, line_no, path, suggested))
+        for line_no, path in extract_wiki_prefix_paths(text):
+            suggested = canonicalize_wiki_prefixed_path(path)
+            wiki_prefix_links.append((md_file, line_no, path, suggested))
         for href in extract_md_link_hrefs(text):
             target: Path | None = None
             if "../" in href or href == "..":
                 suggested = canonicalize_href_from_source(md_file, wiki_path, href)
-                escape_links.append((md_file, href, suggested))
                 if suggested is not None:
                     target = resolve_href(wiki_path, suggested)
                     if target is None:
@@ -250,15 +367,39 @@ def lint(root: str) -> int:
 
     if escape_links:
         print(f"\n🔴 Banned '../' paths ({len(escape_links)}) — wiki links must be wiki-root-relative:")
-        for source, href, suggested in escape_links:
+        for source, line_no, href, suggested in escape_links:
             if suggested is not None:
-                print(f"   {source.relative_to(root_path)} → {href}  (use: {suggested})")
+                print(f"   {source.relative_to(root_path)}:{line_no} → {href}  (use: {suggested})")
             else:
-                print(f"   {source.relative_to(root_path)} → {href}  (use: <cannot auto-suggest>)")
+                print(f"   {source.relative_to(root_path)}:{line_no} → {href}  (use: <cannot auto-suggest>)")
         print("   rule: inside wiki/, all paths start from wiki root — never use ../")
         issues += len(escape_links)
     else:
         print("✅ No banned '../' paths")
+
+    if wiki_prefix_links:
+        print(f"\n🔴 Banned 'wiki/' prefixes ({len(wiki_prefix_links)}) — wiki links must be wiki-root-relative:")
+        for source, line_no, href, suggested in wiki_prefix_links:
+            if suggested is not None:
+                print(f"   {source.relative_to(root_path)}:{line_no} → {href}  (use: {suggested})")
+            else:
+                print(f"   {source.relative_to(root_path)}:{line_no} → {href}  (use: <cannot auto-suggest>)")
+        print("   rule: inside wiki/, never prefix links with 'wiki/'")
+        issues += len(wiki_prefix_links)
+    else:
+        print("✅ No banned 'wiki/' prefixes")
+
+    if absolute_links:
+        print(f"\n🔴 Absolute paths ({len(absolute_links)}) — wiki links must be wiki-root-relative:")
+        for source, line_no, href, suggested in absolute_links:
+            if suggested is not None:
+                print(f"   {source.relative_to(root_path)}:{line_no} → {href}  (use: {suggested})")
+            else:
+                print(f"   {source.relative_to(root_path)}:{line_no} → {href}  (use: <cannot auto-suggest>)")
+        print("   rule: inside wiki/, never use filesystem-absolute paths")
+        issues += len(absolute_links)
+    else:
+        print("✅ No absolute paths")
 
     if dead_links:
         print(f"\n🔴 Dead links ({len(dead_links)}):")
@@ -268,7 +409,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No dead links")
 
-    # ── Pass 3: malformed link URLs (unquoted whitespace) ──────────────────
+    # ── Pass 4: malformed link URLs (unquoted whitespace) ──────────────────
     malformed: list[tuple[Path, int, str]] = []
     for md_file in all_wiki_files:
         text = md_file.read_text(encoding="utf-8")
@@ -289,7 +430,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No malformed link URLs")
 
-    # ── Pass 4: orphan pages ────────────────────────────────────────────────
+    # ── Pass 5: orphan pages ────────────────────────────────────────────────
     orphans = [
         p for p in all_wiki_files
         if p != index_path and p not in inbound
@@ -302,7 +443,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No orphan pages")
 
-    # ── Pass 5: missing index entries ───────────────────────────────────────
+    # ── Pass 6: missing index entries ───────────────────────────────────────
     if index_path.exists():
         index_text = index_path.read_text(encoding="utf-8")
         linked_from_index: set[Path] = set()
@@ -324,7 +465,7 @@ def lint(root: str) -> int:
     else:
         print("⚠️  wiki/index.md not found — skipping index check")
 
-    # ── Pass 6: frequently-missing targets ─────────────────────────────────
+    # ── Pass 7: frequently-missing targets ─────────────────────────────────
     frequent_missing = [
         (key, count) for key, count in missing_href_counts.items() if count >= 3
     ]
@@ -341,7 +482,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No frequently-missing targets")
 
-    # ── Pass 7: residual wikilinks ─────────────────────────────────────────
+    # ── Pass 8: residual wikilinks ─────────────────────────────────────────
     residual_hits: list[tuple[Path, int]] = []
     for md_file in all_wiki_files:
         text = md_file.read_text(encoding="utf-8")
@@ -360,7 +501,7 @@ def lint(root: str) -> int:
     else:
         print("✅ No residual [[wikilinks]]")
 
-    # ── Pass 8: log/ shape ───────────────────────────────────────────────────
+    # ── Pass 9: log/ shape ───────────────────────────────────────────────────
     if log_path.exists() and log_path.is_dir():
         log_issues: list[str] = []
         for p in sorted(log_path.iterdir()):
@@ -387,7 +528,7 @@ def lint(root: str) -> int:
     else:
         print("⚠️  log/ directory not found — skipping log shape check")
 
-    # ── Pass 9: audit/ shape ─────────────────────────────────────────────────
+    # ── Pass 10: audit/ shape ─────────────────────────────────────────────────
     audit_targets_to_check: list[tuple[str, str]] = []
     if audit_path.exists() and audit_path.is_dir():
         audit_files = [
@@ -433,7 +574,7 @@ def lint(root: str) -> int:
     else:
         print("⚠️  audit/ directory not found — skipping audit shape check")
 
-    # ── Pass 10: audit targets exist ─────────────────────────────────────────
+    # ── Pass 11: audit targets exist ─────────────────────────────────────────
     missing_targets: list[tuple[str, str]] = []
     for audit_id, target in audit_targets_to_check:
         target_path = root_path / target
